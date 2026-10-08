@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Servo OpenHarmony WPT</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #1f2328;
+    --muted: #59636e;
+    --grid: #d8dee4;
+    --border: #d1d9e0;
+    --stripe: #f6f8fa;
+    --series-1: #2a6fdb;
+    --series-2: #d4632a;
+    --series-3: #1f9e6e;
+    --series-4: #a34fd1;
+    --upstream: #8c959f;
+    --better: #1a7f37;
+    --worse: #cf222e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #9198a1;
+      --grid: #30363d;
+      --border: #3d444d;
+      --stripe: #151b23;
+      --series-1: #6ea8fe;
+      --series-2: #f0955f;
+      --series-3: #4cc79a;
+      --series-4: #c58af0;
+      --upstream: #8b949e;
+      --better: #3fb950;
+      --worse: #f85149;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto;
+    max-width: 1100px;
+    padding: 24px 16px 48px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 32px 0 8px; }
+  p { margin: 0 0 16px; color: var(--muted); }
+  a { color: var(--series-1); }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 16px 0; }
+  label { display: flex; flex-direction: column; font-size: 0.85rem; color: var(--muted); gap: 4px; }
+  select { font: inherit; padding: 4px 8px; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-bottom: 8px; font-size: 0.9rem; }
+  .legend span::before { content: ""; display: inline-block; width: 14px; height: 0; margin: 0 6px 4px 0; border-top: 3px var(--style, solid) var(--c); }
+  .note { font-size: 0.85rem; margin: 0 0 8px; }
+  #chart { position: relative; width: 100%; }
+  #chart svg { display: block; width: 100%; height: 340px; overflow: visible; }
+  #chart text { fill: var(--muted); font-size: 12px; }
+  .tooltip {
+    position: absolute; pointer-events: none; padding: 6px 10px; font-size: 0.85rem; white-space: nowrap;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+  }
+  .table-wrap { overflow-x: auto; margin-top: 24px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  tbody tr:nth-child(odd) { background: var(--stripe); }
+  .empty { padding: 48px 0; text-align: center; color: var(--muted); }
+  .crumbs { margin: 16px 0 0; font-size: 1.05rem; }
+  .crumbs a, td a { text-decoration: none; }
+  .crumbs a:hover, td a:hover { text-decoration: underline; }
+  tr.current td { font-weight: 600; }
+  small { color: var(--muted); font-weight: normal; }
+  .better { color: var(--better); }
+  .worse { color: var(--worse); }
+</style>
+</head>
+<body>
+<h1>Servo OpenHarmony WPT pass rates</h1>
+<p>
+  Nightly <a href="https://web-platform-tests.org/">Web Platform Tests</a> results of
+  <a href="https://github.com/openharmony-rs/servo-ohos">servo-ohos</a>, one line per configuration.
+  The score counts each test as the fraction of its subtests that pass, like
+  <a href="https://servo.org/wpt/">Servo's own dashboard</a>. Skipped tests are not counted.
+  Pick a directory in the table to see its history and its tests.
+</p>
+<nav class="crumbs" id="crumbs"></nav>
+<div class="controls">
+  <label>Period <select id="period"></select></label>
+  <label>Metric
+    <select id="metric">
+      <option value="score">Score</option>
+      <option value="subtests">Subtests passing</option>
+    </select>
+  </label>
+</div>
+<div class="legend" id="legend"></div>
+<p class="note" id="note"></p>
+<div id="chart"></div>
+<div class="table-wrap"><table id="table"></table></div>
+<section id="tests"></section>
+<section id="changes"></section>
+<script>
+const PERIODS = { "Last month": 1, "Last 3 months": 3, "Last 6 months": 6, "Last year": 12, "All runs": null };
+// Upstream Servo's wpt.fyi runs, scored by DioxusLabs/browser-wpt-results in the same format.
+const UPSTREAM = {
+  id: "upstream",
+  label: "Servo upstream (wpt.fyi)",
+  color: "var(--upstream)",
+  base: "https://raw.githubusercontent.com/DioxusLabs/browser-wpt-results/main/summary/servo",
+};
+// wpt.fyi runs the whole test suite; only show upstream where it ran about as many tests as we did.
+const COMPARABLE_TESTS = 0.1;
+const MAX_CHANGES = 200;
+const SVG = "http://www.w3.org/2000/svg";
+const $ = id => document.getElementById(id);
+const fetchCache = new Map();
+let configs = [];
+let upstream = null;
+
+function fetchJson(url) {
+  if (!fetchCache.has(url)) {
+    fetchCache.set(url, fetch(url).then(r => r.ok ? r.json() : null).catch(() => null));
+  }
+  return fetchCache.get(url);
+}
+
+// A score tuple is [tests, score, subtests, subtests passed], see summary/<config>/runs.json.
+function percent(tuple, metric) {
+  if (!tuple) return null;
+  const [num, den] = metric === "score" ? [tuple[1], tuple[0]] : [tuple[3], tuple[2]];
+  return den ? Math.floor(1000 * num / den) / 10 : null;
+}
+
+function currentArea() {
+  return decodeURIComponent(location.hash.slice(1));
+}
+
+function areaPath(area) {
+  return area.split("/").map(encodeURIComponent).join("/");
+}
+
+async function areaScores(config, area) {
+  const base = config.base || `summary/${config.id}`;
+  const data = await fetchJson(area === "" ? `${base}/total.json` : `${base}/areas/${areaPath(area)}.json`);
+  return data ? data.scores : [];
+}
+
+function el(tag, attrs, parent) {
+  const node = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  if (parent) parent.appendChild(node);
+  return node;
+}
+
+function escape(text) {
+  return String(text).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+}
+
+function lastTuple(scores, runs, from) {
+  for (let i = scores.length - 1; i >= 0; i--) {
+    if (scores[i] && Date.parse(runs[i].date) >= from) return [scores[i], runs[i]];
+  }
+  return [null, null];
+}
+
+async function render() {
+  const area = currentArea();
+  const metric = $("metric").value;
+  const parts = area ? area.split("/") : [];
+  $("crumbs").innerHTML = [`<a href="#">All tests</a>`,
+    ...parts.map((part, i) => `<a href="#${areaPath(parts.slice(0, i + 1).join("/"))}">${escape(part)}</a>`)]
+    .join(" / ");
+  document.title = area ? `${area} · Servo OpenHarmony WPT` : "Servo OpenHarmony WPT";
+
+  const months = PERIODS[$("period").value];
+  const firstRun = Math.min(...configs.flatMap(c => c.runs.map(r => Date.parse(r.date))));
+  const latest = Math.max(...configs.flatMap(c => c.runs.map(r => Date.parse(r.date))));
+  const from = Math.max(firstRun - 7 * 86400000,
+    months ? new Date(latest).setUTCMonth(new Date(latest).getUTCMonth() - months) : -Infinity);
+  const toSeries = (c, scores) => ({
+    ...c,
+    points: c.runs
+      .map((run, i) => ({ x: Date.parse(run.date.slice(0, 10)), y: percent(scores[i], metric), run }))
+      .filter(p => p.x >= from && p.y !== null),
+  });
+  const own = await Promise.all(configs.map(async c => toSeries(c, await areaScores(c, area))));
+  const upstreamScores = upstream ? await areaScores(upstream, area) : [];
+  if (area !== currentArea()) return;
+
+  const series = [...own];
+  const note = [];
+  if (upstream) {
+    const ownTests = Math.max(0, ...configs.map(c => c.latest.scores[area]?.[0] ?? 0));
+    const [tuple, run] = lastTuple(upstreamScores, upstream.runs, -Infinity);
+    if (!tuple) {
+      note.push(`${UPSTREAM.label} has no results for this directory.`);
+    } else if (Math.abs(tuple[0] - ownTests) > COMPARABLE_TESTS * ownTests) {
+      note.push(`${UPSTREAM.label} is not shown here: it ran ${tuple[0]} tests in this directory on
+        ${run.date.slice(0, 10)}, servo-ohos ${ownTests}.`);
+    } else {
+      series.push({ ...upstream, dashed: true, ...toSeries(upstream, upstreamScores) });
+      note.push(`${UPSTREAM.label}, ${run.date.slice(0, 10)}: ${percent(tuple, metric).toFixed(1)}%
+        <small>${tuple[0]} tests</small>`);
+    }
+  }
+  $("note").innerHTML = note.join(" ");
+  drawChart(series);
+  drawTable(area, metric);
+  await Promise.all([drawTests(area), drawChanges(area)]);
+}
+
+function drawChart(series) {
+  const chart = $("chart");
+  chart.replaceChildren();
+  const all = series.flatMap(s => s.points);
+  if (!all.length) {
+    chart.innerHTML = '<div class="empty">No runs for this directory in this period.</div>';
+    return;
+  }
+  const width = chart.clientWidth, height = 340, left = 44, right = 12, top = 10, bottom = 26;
+  const xs = all.map(p => p.x), ys = all.map(p => p.y);
+  let [x0, x1] = [Math.min(...xs), Math.max(...xs)];
+  if (x0 === x1) { x0 -= 86400000; x1 += 86400000; }
+  const span = Math.max(Math.max(...ys) - Math.min(...ys), 1);
+  const y0 = Math.max(0, Math.floor(Math.min(...ys) - span * 0.2));
+  const y1 = Math.min(100, Math.ceil(Math.max(...ys) + span * 0.2));
+  const sx = x => left + (x - x0) / (x1 - x0) * (width - left - right);
+  const sy = y => top + (y1 - y) / (y1 - y0) * (height - top - bottom);
+  const day = x => new Date(x).toISOString().slice(0, 10);
+
+  const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, role: "img",
+    "aria-label": `${currentArea() || "All tests"}: ${$("metric").selectedOptions[0].text} over time` }, chart);
+  const step = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20].find(s => (y1 - y0) / s <= 6) || 25;
+  for (let i = Math.ceil(y0 / step - 1e-9); i * step <= y1 + 1e-9; i++) {
+    const y = i * step;
+    el("line", { x1: left, x2: width - right, y1: sy(y), y2: sy(y), stroke: "var(--grid)" }, svg);
+    el("text", { x: left - 6, y: sy(y) + 4, "text-anchor": "end" }, svg).textContent = `${+y.toFixed(1)}%`;
+  }
+  const days = [...new Set(xs.map(day))].sort();
+  const ticks = Math.min(days.length, 6, Math.max(2, Math.floor((width - left - right) / 110)));
+  const tickDays = [...new Set(Array.from({ length: ticks }, (_, i) =>
+    days[Math.round(i * (days.length - 1) / Math.max(ticks - 1, 1))]))];
+  for (const [i, d] of tickDays.entries()) {
+    const anchor = tickDays.length === 1 ? "middle" : i === 0 ? "start" : i === tickDays.length - 1 ? "end" : "middle";
+    el("text", { x: sx(Date.parse(d)), y: height - 6, "text-anchor": anchor }, svg).textContent = d;
+  }
+  for (const s of series) {
+    if (!s.points.length) continue;
+    const d = s.points.map((p, i) => `${i ? "L" : "M"}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join("");
+    el("path", { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round",
+      ...(s.dashed ? { "stroke-dasharray": "6 4" } : {}) }, svg);
+    if (s.points.length <= 45) {
+      for (const p of s.points) el("circle", { cx: sx(p.x), cy: sy(p.y), r: 2.5, fill: s.color }, svg);
+    }
+  }
+
+  const cursor = el("line", { y1: top, y2: height - bottom, stroke: "var(--muted)", "stroke-dasharray": "3 3",
+    visibility: "hidden" }, svg);
+  const tooltip = document.createElement("div");
+  tooltip.className = "tooltip";
+  tooltip.hidden = true;
+  chart.appendChild(tooltip);
+  svg.addEventListener("pointermove", event => {
+    const box = svg.getBoundingClientRect();
+    const x = x0 + (event.clientX - box.left - left) / (width - left - right) * (x1 - x0);
+    const d = days.reduce((best, d) => Math.abs(Date.parse(d) - x) < Math.abs(Date.parse(best) - x) ? d : best);
+    cursor.setAttribute("x1", sx(Date.parse(d)));
+    cursor.setAttribute("x2", sx(Date.parse(d)));
+    cursor.setAttribute("visibility", "visible");
+    const lines = series.map(s => {
+      const p = s.points.find(p => day(p.x) === d);
+      return p ? `<div style="color:${s.color}">${escape(s.label)}: <b>${p.y.toFixed(1)}%</b>
+        <small>${escape(p.run.product_revision.replace(/^Servo /, "").slice(0, 15))}</small></div>` : "";
+    }).join("");
+    tooltip.innerHTML = `<div>${d}</div>${lines}`;
+    tooltip.hidden = false;
+    const px = sx(Date.parse(d)) / width * box.width;
+    tooltip.style.left = `${Math.min(px + 12, box.width - tooltip.offsetWidth)}px`;
+    tooltip.style.top = "8px";
+  });
+  svg.addEventListener("pointerleave", () => {
+    cursor.setAttribute("visibility", "hidden");
+    tooltip.hidden = true;
+  });
+}
+
+function drawTable(area, metric) {
+  const parentOf = a => a.includes("/") ? a.slice(0, a.lastIndexOf("/")) : "";
+  const children = [...new Set(configs.flatMap(c => Object.keys(c.latest.scores)))]
+    .filter(a => a !== "" && parentOf(a) === area)
+    .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+  const cell = (c, a) => {
+    const tuple = c.latest.scores[a];
+    const value = percent(tuple, metric);
+    return `<td>${value === null ? "–" : `${value.toFixed(1)}% <small>${tuple[0]}</small>`}</td>`;
+  };
+  const head = `<thead><tr><th>Directory</th>${configs.map(c =>
+    `<th style="color:${c.color}">${escape(c.label)}<br><small>${c.latest.run.date.slice(0, 10)}</small></th>`)
+    .join("")}</tr></thead>`;
+  const current = `<tr class="current"><td>${escape(area ? area.split("/").pop() : "All tests")}</td>${
+    configs.map(c => cell(c, area)).join("")}</tr>`;
+  const rows = children.map(a => `<tr><td><a href="#${areaPath(a)}">${escape(a.split("/").pop())}/</a></td>${
+    configs.map(c => cell(c, a)).join("")}</tr>`).join("");
+  $("table").innerHTML = `${head}<tbody>${current}${rows}</tbody>`;
+}
+
+// Splits a test id into its directory and name, like split_test() in scripts/wpt_store.py.
+function splitTest(test) {
+  const query = test.indexOf("?");
+  const slash = test.lastIndexOf("/", query >= 0 ? query : test.length);
+  return [test.slice(1, Math.max(slash, 1)), test.slice(slash + 1)];
+}
+
+// A test result is [status, subtests passed, subtests]; status is null if the test did not run.
+function passFraction([status, passed, total]) {
+  return total ? passed / total : status === "PASS" ? 1 : 0;
+}
+
+function resultText(result) {
+  const [status, passed, total] = result;
+  if (status === null) return "removed";
+  return total ? `${escape(status)} <small>${passed}/${total}</small>` : escape(status);
+}
+
+// The change in the fraction of passing subtests, or 0 for a new or removed test.
+function delta(now, change) {
+  if (change === null || change === "new" || now[0] === null) return 0;
+  return passFraction(now) - passFraction(change);
+}
+
+function changeText(now, change) {
+  if (change === null || now[0] === null) return "";
+  if (change === "new") return ' <small>new</small>';
+  const d = delta(now, change);
+  const cls = d > 0 ? "better" : d < 0 ? "worse" : "";
+  return ` <span class="${cls}" title="previous run: ${escape(change[0] ?? "")} ${change[1]}/${change[2]}">${
+    d > 0 ? "▲" : d < 0 ? "▼" : "•"}</span>`;
+}
+
+function testLink(area, name) {
+  const top = area.split("/")[0];
+  const path = `${area ? `${area}/` : ""}${name}`;
+  return top.startsWith("_") ? escape(name) : `<a href="https://wpt.live/${escape(path)}">${escape(name)}</a>`;
+}
+
+async function drawTests(area) {
+  const file = area === "" ? "tests.json" : `tests/${areaPath(area)}.json`;
+  const lists = await Promise.all(configs.map(c => fetchJson(`summary/${c.id}/${file}`)));
+  if (area !== currentArea()) return;
+  const byName = new Map();
+  lists.forEach((list, i) => {
+    for (const [name, ...row] of list ? list.tests : []) {
+      if (!byName.has(name)) byName.set(name, []);
+      byName.get(name)[i] = row;
+    }
+  });
+  if (!byName.size) {
+    $("tests").replaceChildren();
+    return;
+  }
+  const fyi = area && !area.startsWith("_")
+    ? ` <small><a href="https://wpt.fyi/results/${areaPath(area)}?label=master&label=experimental&aligned">on wpt.fyi</a></small>`
+    : "";
+  const rows = [...byName.keys()].sort().map(name => `<tr><td>${testLink(area, name)}</td>${
+    configs.map((c, i) => {
+      const row = byName.get(name)[i];
+      return `<td>${row ? resultText(row) + changeText(row, row[3]) : "–"}</td>`;
+    }).join("")}</tr>`).join("");
+  $("tests").innerHTML = `<h2>Tests in ${escape(area || "the root directory")}${fyi}</h2>
+    <div class="table-wrap"><table><thead><tr><th>Test</th>${configs.map(c =>
+      `<th style="color:${c.color}">${escape(c.label)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+async function drawChanges(area) {
+  const lists = await Promise.all(configs.map(c => fetchJson(`summary/${c.id}/changes.json`)));
+  if (area !== currentArea()) return;
+  const prefix = area ? `/${area}/` : "/";
+  const sections = configs.map((c, i) => {
+    const list = lists[i];
+    if (!list || !list.previous) return "";
+    const changes = list.changes.filter(([test]) => test.startsWith(prefix));
+    const better = changes.filter(([, ...now]) => delta(now, now[3]) > 0).length;
+    const worse = changes.filter(([, ...now]) => delta(now, now[3]) < 0).length;
+    const rows = changes.slice(0, MAX_CHANGES).map(([test, ...now]) => {
+      const [directory, name] = splitTest(test);
+      const before = now[3] === "new" ? "–" : resultText(now[3]);
+      const link = directory ? `<a href="#${areaPath(directory)}">${escape(directory)}/</a>` : "/";
+      return `<tr><td>${link}${escape(name)}</td>
+        <td>${before}</td><td>${resultText(now)}${changeText(now, now[3])}</td></tr>`;
+    }).join("");
+    const more = changes.length > MAX_CHANGES ? `<p>and ${changes.length - MAX_CHANGES} more.</p>` : "";
+    return `<h2 style="color:${c.color}">${escape(c.label)}: ${changes.length} changed tests
+      <small>${list.previous.slice(0, 10)} → ${list.run.slice(0, 10)}, <span class="better">${better} better</span>,
+      <span class="worse">${worse} worse</span></small></h2>${changes.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Test</th><th>Previous run</th><th>Latest run</th></tr></thead><tbody>${rows}</tbody></table></div>${more}` : ""}`;
+  }).join("");
+  $("changes").innerHTML = sections;
+}
+
+async function main() {
+  const index = await (await fetch("summary/index.json")).json();
+  configs = await Promise.all(index.configs.map(async c => ({
+    ...c,
+    color: `var(--series-${c.slot % 4 + 1})`,
+    runs: (await fetchJson(`summary/${c.id}/runs.json`)).runs,
+    latest: await fetchJson(`summary/${c.id}/latest.json`),
+  })));
+  if (!configs.length) {
+    $("chart").innerHTML = '<div class="empty">No runs stored yet.</div>';
+    return;
+  }
+  const upstreamRuns = await fetchJson(`${UPSTREAM.base}/runs.json`);
+  if (upstreamRuns) upstream = { ...UPSTREAM, runs: upstreamRuns.runs };
+  $("legend").innerHTML = [...configs, ...(upstream ? [{ ...upstream, dashed: true }] : [])]
+    .map(c => `<span style="--c:${c.color}${c.dashed ? ";--style:dashed" : ""}">${escape(c.label)}</span>`).join("");
+  $("period").innerHTML = Object.keys(PERIODS).map(p => `<option>${p}</option>`).join("");
+  $("period").value = "Last 3 months";
+  for (const id of ["period", "metric"]) $(id).addEventListener("change", render);
+  addEventListener("hashchange", render);
+  addEventListener("resize", () => render());
+  await render();
+}
+
+main().catch(error => {
+  $("chart").innerHTML = `<div class="empty">Could not load the scores: ${escape(error)}</div>`;
+});
+</script>
+</body>
+</html>

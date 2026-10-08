@@ -1,0 +1,6 @@
+[
+  { "id": "linux-spidermonkey", "label": "Linux, SpiderMonkey" },
+  { "id": "linux-quickjs", "label": "Linux, QuickJS" },
+  { "id": "ohos-spidermonkey", "label": "OpenHarmony, SpiderMonkey" },
+  { "id": "ohos-quickjs", "label": "OpenHarmony, QuickJS" }
+]
