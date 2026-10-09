@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Parentage of cross-origin windows","status":"PASS"},{"name":"Only whitelisted properties are accessible cross-origin","status":"PASS"}]}
