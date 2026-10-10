@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Clicking in the padding of <input type=text> should move the edit point properly","status":"PASS"}]}
