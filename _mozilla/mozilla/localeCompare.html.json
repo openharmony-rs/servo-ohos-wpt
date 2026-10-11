@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"localeCompare should return the same as other browsers, even though it's implementation-dependent","status":"FAIL"}]}
