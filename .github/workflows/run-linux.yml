@@ -20,6 +20,10 @@ on:
       servo-ref:
         default: ohos-main
         type: string
+      quickjs:
+        description: Build with `--js-engine quickjs`, on the servo-quickjs commit that the revision pins
+        default: false
+        type: boolean
       build-args:
         description: Extra arguments for `./mach build`
         default: ""
@@ -113,9 +117,13 @@ jobs:
       - name: Build
         env:
           BUILD_ARGS: ${{ inputs.build-args }}
+          QUICKJS: ${{ inputs.quickjs }}
         run: |
+          # `--js-engine quickjs` changes Cargo.lock.
+          args=(--locked)
+          if [ "$QUICKJS" = true ]; then args=(--js-engine quickjs); fi
           # shellcheck disable=SC2086 # BUILD_ARGS holds several arguments
-          ./mach build --locked --profile release $BUILD_ARGS
+          ./mach build "${args[@]}" --profile release $BUILD_ARGS
       - name: Package
         run: ./mach package --profile release
       - uses: actions/upload-artifact@v7

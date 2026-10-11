@@ -42,9 +42,22 @@ jobs:
       servo-ref: ${{ inputs.servo-ref || 'ohos-main' }}
       force: ${{ inputs.force || false }}
 
+  linux-quickjs:
+    name: Linux, QuickJS
+    needs: date
+    uses: ./.github/workflows/run-linux.yml
+    permissions:
+      contents: write
+    with:
+      config: linux-quickjs
+      date: ${{ needs.date.outputs.date }}
+      servo-ref: ${{ inputs.servo-ref || 'ohos-main' }}
+      quickjs: true
+      force: ${{ inputs.force || false }}
+
   publish:
     name: Publish
-    needs: linux-spidermonkey
+    needs: [linux-spidermonkey, linux-quickjs]
     if: ${{ !cancelled() }}
     uses: ./.github/workflows/publish.yml
     permissions:

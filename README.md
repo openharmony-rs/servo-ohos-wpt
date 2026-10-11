@@ -9,6 +9,7 @@ that shows their pass rates: <https://openharmony-rs.github.io/servo-ohos-wpt/>.
 | Configuration        | What runs                                                                       |
 | -------------------- | ------------------------------------------------------------------------------- |
 | `linux-spidermonkey` | servoshell built from `ohos-main` on a GitHub-hosted Linux runner, 20 WPT chunks |
+| `linux-quickjs`      | the same, built with `js-quickjs` on the servo-quickjs commit that `ohos-main` pins |
 
 Runs on OpenHarmony are planned. Each configuration has its own score history, and two runs
 of different configurations can be compared with `just diff`.
