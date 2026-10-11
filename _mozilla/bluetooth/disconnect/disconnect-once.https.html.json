@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"'connected' is set to false after disconnect is called.","status":"FAIL"}]}

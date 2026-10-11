@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Requesting with an extra service/manufacturerData, which is not advertised, rejects with NotFoundError.","status":"FAIL"}]}
