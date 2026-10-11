@@ -174,9 +174,13 @@ jobs:
           CHUNK: ${{ matrix.chunk }}
           CHUNKS: ${{ inputs.chunks }}
           WPT_ARGS: ${{ inputs.wpt-args }}
+          QUICKJS: ${{ inputs.quickjs }}
         run: |
+          # Selects the QuickJS expectations and skips the WebAssembly tests.
+          args=()
+          if [ "$QUICKJS" = true ]; then args=(--js-engine quickjs); fi
           # shellcheck disable=SC2086 # WPT_ARGS holds several arguments
-          ./mach test-wpt \
+          ./mach test-wpt "${args[@]}" \
             --bin servo/servoshell --profile release \
             --processes "$(nproc)" --timeout-multiplier 2 --always-succeed \
             --browser-version "$(servo/servoshell --version)" \
