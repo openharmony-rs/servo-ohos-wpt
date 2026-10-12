@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Reject with TypeError if filters present and acceptAllDevices is true.","status":"FAIL"}]}

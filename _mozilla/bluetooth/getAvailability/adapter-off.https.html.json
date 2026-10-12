@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"GetAvailability is false if the adapter is off.","status":"FAIL"}]}
