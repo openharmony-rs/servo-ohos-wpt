@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Calling setProperty on a custom property should recompute its value inherited by children","status":"PASS"}]}
