@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Multiple requests for the same URL do not trigger multiple load events.","status":"PASS"},{"name":"Multiple requests for different URL do not trigger multiple load events.","status":"PASS"}]}
