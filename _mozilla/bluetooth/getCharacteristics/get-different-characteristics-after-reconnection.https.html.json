@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Calls to getCharacteristics after a disconnection should return different objects.","status":"FAIL"}]}
