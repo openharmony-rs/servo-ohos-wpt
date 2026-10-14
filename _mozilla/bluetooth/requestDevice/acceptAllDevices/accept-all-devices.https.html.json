@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Requesting all devices without filters must return all the devices.","status":"FAIL"}]}
