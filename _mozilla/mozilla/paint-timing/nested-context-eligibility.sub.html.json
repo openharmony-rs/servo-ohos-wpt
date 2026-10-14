@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Same-origin nested browsing contexts are paint-timing eligible.","status":"PASS"},{"name":"Cross-origin nested browsing contexts are not paint-timing eligible.","status":"PASS"}]}

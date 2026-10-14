@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Setting src attribute asynchronously on image before window.onload doesn't panic.","status":"PASS"}]}

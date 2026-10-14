@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"A device can be found by requesting service/manufacturerData with a dataPrefix and an appropriate mask","status":"FAIL"}]}

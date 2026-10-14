@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"window.onresize should not be called when the window first loads","status":"PASS"}]}
