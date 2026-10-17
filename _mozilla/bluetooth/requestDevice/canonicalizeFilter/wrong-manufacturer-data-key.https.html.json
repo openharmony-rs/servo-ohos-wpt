@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Rejects with TypeError, if a manufacturerData key is not an unsigned short.","status":"FAIL"}]}
