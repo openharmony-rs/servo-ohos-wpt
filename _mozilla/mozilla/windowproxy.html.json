@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"windowproxy","status":"PASS"},{"name":"Unforgeable location","status":"PASS"},{"name":"document.location is the right thing","status":"PASS"},{"name":"document.location is the right thing on non-rendered document","status":"PASS"}]}
