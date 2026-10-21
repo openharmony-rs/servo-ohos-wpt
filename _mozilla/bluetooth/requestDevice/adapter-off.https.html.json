@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Reject with NotFoundError if the adapter is off.","status":"FAIL"}]}

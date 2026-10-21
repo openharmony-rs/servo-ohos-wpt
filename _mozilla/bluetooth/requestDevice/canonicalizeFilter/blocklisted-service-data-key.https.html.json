@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Rejects with SecurityError, if a serviceData key is blocklisted.","status":"FAIL"}]}
