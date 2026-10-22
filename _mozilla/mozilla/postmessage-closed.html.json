@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Window.postMessage does not panic when a window is closed before the message is received","status":"PASS"}]}
