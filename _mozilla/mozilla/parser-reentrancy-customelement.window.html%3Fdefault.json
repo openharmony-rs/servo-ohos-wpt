@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Dynamic markup insertion during custom element callbacks does not panic","status":"PASS"}]}
