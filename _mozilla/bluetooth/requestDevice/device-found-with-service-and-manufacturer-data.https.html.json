@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Requesting with manufacturerData and serviceData in the same filter, will find the device which advertises both.","status":"FAIL"}]}

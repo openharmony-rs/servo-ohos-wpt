@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"mousemove events that do not change the cursor position are ignored","status":"PASS"}]}
