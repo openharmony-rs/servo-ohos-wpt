@@ -1,6 +1,7 @@
 [
-  { "id": "linux-spidermonkey", "label": "Linux, SpiderMonkey" },
+  { "id": "linux-spidermonkey", "label": "Linux, SpiderMonkey", "base": "upstream-linux-spidermonkey" },
   { "id": "linux-quickjs", "label": "Linux, QuickJS" },
+  { "id": "upstream-linux-spidermonkey", "label": "Upstream base, Linux, SpiderMonkey" },
   { "id": "ohos-spidermonkey", "label": "OpenHarmony, SpiderMonkey" },
   { "id": "ohos-quickjs", "label": "OpenHarmony, QuickJS" }
 ]

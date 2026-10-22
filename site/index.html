@@ -82,8 +82,11 @@
 <body>
 <h1>Servo OpenHarmony WPT pass rates</h1>
 <p>
-  Nightly <a href="https://web-platform-tests.org/">Web Platform Tests</a> results of
-  <a href="https://github.com/openharmony-rs/servo-ohos">servo-ohos</a>, one line per configuration.
+  <a href="https://web-platform-tests.org/">Web Platform Tests</a> results of the
+  <code>ohos-main</code> commits of <a href="https://github.com/openharmony-rs/servo-ohos">servo-ohos</a>,
+  one line per configuration. The upstream base line shows the results of the
+  <a href="https://github.com/servo/servo">servo/servo</a> commit that each tested commit is based on,
+  and dotted vertical lines mark rebases onto a newer upstream.
   The score counts each test as the fraction of its subtests that pass, like
   <a href="https://servo.org/wpt/">Servo's own dashboard</a>. Skipped tests are not counted.
   Pick a directory in the table to see its history and its tests.
@@ -111,7 +114,7 @@ const UPSTREAM = {
   id: "upstream",
   label: "Servo upstream (wpt.fyi)",
   color: "var(--upstream)",
-  base: "https://raw.githubusercontent.com/DioxusLabs/browser-wpt-results/main/summary/servo",
+  url: "https://raw.githubusercontent.com/DioxusLabs/browser-wpt-results/main/summary/servo",
 };
 // wpt.fyi runs the whole test suite; only show upstream where it ran about as many tests as we did.
 const COMPARABLE_TESTS = 0.1;
@@ -120,6 +123,10 @@ const SVG = "http://www.w3.org/2000/svg";
 const $ = id => document.getElementById(id);
 const fetchCache = new Map();
 let configs = [];
+// The configurations with their own line; the others are only drawn as the upstream base of one of these.
+let charted = [];
+// Runs started together share a name, and are drawn where the first of them started.
+const runTimes = new Map();
 let upstream = null;
 
 function fetchJson(url) {
@@ -145,8 +152,8 @@ function areaPath(area) {
 }
 
 async function areaScores(config, area) {
-  const base = config.base || `summary/${config.id}`;
-  const data = await fetchJson(area === "" ? `${base}/total.json` : `${base}/areas/${areaPath(area)}.json`);
+  const url = config.url || `summary/${config.id}`;
+  const data = await fetchJson(area === "" ? `${url}/total.json` : `${url}/areas/${areaPath(area)}.json`);
   return data ? data.scores : [];
 }
 
@@ -159,6 +166,10 @@ function el(tag, attrs, parent) {
 
 function escape(text) {
   return String(text).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+}
+
+function baseOf(config) {
+  return configs.find(c => c.id === config.base);
 }
 
 function lastTuple(scores, runs, from) {
@@ -178,21 +189,34 @@ async function render() {
   document.title = area ? `${area} · Servo OpenHarmony WPT` : "Servo OpenHarmony WPT";
 
   const months = PERIODS[$("period").value];
-  const firstRun = Math.min(...configs.flatMap(c => c.runs.map(r => Date.parse(r.date))));
-  const latest = Math.max(...configs.flatMap(c => c.runs.map(r => Date.parse(r.date))));
+  const firstRun = Math.min(...runTimes.values());
+  const latest = Math.max(...runTimes.values());
   const from = Math.max(firstRun - 7 * 86400000,
     months ? new Date(latest).setUTCMonth(new Date(latest).getUTCMonth() - months) : -Infinity);
-  const toSeries = (c, scores) => ({
-    ...c,
-    points: c.runs
-      .map((run, i) => ({ x: Date.parse(run.date.slice(0, 10)), y: percent(scores[i], metric), run }))
-      .filter(p => p.x >= from && p.y !== null),
-  });
-  const own = await Promise.all(configs.map(async c => toSeries(c, await areaScores(c, area))));
+  const visible = points => points.filter(p => p && p.x >= from && p.y !== null);
+  const own = await Promise.all(charted.map(async c => {
+    const scores = await areaScores(c, area);
+    return { ...c, points: visible(c.runs.map((run, i) =>
+      ({ x: runTimes.get(run.name), y: percent(scores[i], metric), run, name: run.name }))) };
+  }));
+  // At every run, the score of the upstream commit that the tested revision is based on.
+  const bases = await Promise.all(charted.filter(baseOf).map(async c => {
+    const base = baseOf(c);
+    const scores = await areaScores(base, area);
+    const byRevision = new Map(base.runs.map((run, i) => [run.product_revision, i]));
+    return { ...base, dashed: true, points: visible(c.runs.map(run => {
+      const i = byRevision.get(run.base_revision);
+      return i === undefined ? null
+        : { x: runTimes.get(run.name), y: percent(scores[i], metric), run: base.runs[i], name: run.name };
+    })) };
+  }));
+  const rebases = new Set(charted.flatMap(c => c.runs.filter((run, i) => i > 0 && run.base_revision &&
+    c.runs[i - 1].base_revision && run.base_revision !== c.runs[i - 1].base_revision))
+    .map(run => runTimes.get(run.name)).filter(x => x >= from));
   const upstreamScores = upstream ? await areaScores(upstream, area) : [];
   if (area !== currentArea()) return;
 
-  const series = [...own];
+  const series = [...own, ...bases];
   const note = [];
   if (upstream) {
     const ownTests = Math.max(0, ...configs.map(c => c.latest.scores[area]?.[0] ?? 0));
@@ -200,21 +224,22 @@ async function render() {
     if (!tuple) {
       note.push(`${UPSTREAM.label} has no results for this directory.`);
     } else if (Math.abs(tuple[0] - ownTests) > COMPARABLE_TESTS * ownTests) {
-      note.push(`${UPSTREAM.label} is not shown here: it ran ${tuple[0]} tests in this directory on
-        ${run.date.slice(0, 10)}, servo-ohos ${ownTests}.`);
+      note.push(`${UPSTREAM.label} is not shown here: it ran ${escape(tuple[0])} tests in this directory on
+        ${escape(run.date.slice(0, 10))}, servo-ohos ${ownTests}.`);
     } else {
-      series.push({ ...upstream, dashed: true, ...toSeries(upstream, upstreamScores) });
-      note.push(`${UPSTREAM.label}, ${run.date.slice(0, 10)}: ${percent(tuple, metric).toFixed(1)}%
-        <small>${tuple[0]} tests</small>`);
+      series.push({ ...upstream, dashed: true, byDay: true, points: visible(upstream.runs.map((run, i) =>
+        ({ x: Date.parse(run.date.slice(0, 10)), y: percent(upstreamScores[i], metric), run }))) });
+      note.push(`${UPSTREAM.label}, ${escape(run.date.slice(0, 10))}: ${percent(tuple, metric).toFixed(1)}%
+        <small>${escape(tuple[0])} tests</small>`);
     }
   }
   $("note").innerHTML = note.join(" ");
-  drawChart(series);
+  drawChart(series, rebases);
   drawTable(area, metric);
   await Promise.all([drawTests(area), drawChanges(area)]);
 }
 
-function drawChart(series) {
+function drawChart(series, rebases) {
   const chart = $("chart");
   chart.replaceChildren();
   const all = series.flatMap(s => s.points);
@@ -232,6 +257,10 @@ function drawChart(series) {
   const sx = x => left + (x - x0) / (x1 - x0) * (width - left - right);
   const sy = y => top + (y1 - y) / (y1 - y0) * (height - top - bottom);
   const day = x => new Date(x).toISOString().slice(0, 10);
+  // The cursor snaps to our runs; the wpt.fyi runs are shown for the day of the run.
+  const named = all.filter(p => p.name);
+  const targets = [...new Set((named.length ? named : all).map(p => p.x))].sort((a, b) => a - b);
+  const names = new Map(named.map(p => [p.x, p.name]));
 
   const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, role: "img",
     "aria-label": `${currentArea() || "All tests"}: ${$("metric").selectedOptions[0].text} over time` }, chart);
@@ -241,13 +270,23 @@ function drawChart(series) {
     el("line", { x1: left, x2: width - right, y1: sy(y), y2: sy(y), stroke: "var(--grid)" }, svg);
     el("text", { x: left - 6, y: sy(y) + 4, "text-anchor": "end" }, svg).textContent = `${+y.toFixed(1)}%`;
   }
-  const days = [...new Set(xs.map(day))].sort();
-  const ticks = Math.min(days.length, 6, Math.max(2, Math.floor((width - left - right) / 110)));
-  const tickDays = [...new Set(Array.from({ length: ticks }, (_, i) =>
-    days[Math.round(i * (days.length - 1) / Math.max(ticks - 1, 1))]))];
-  for (const [i, d] of tickDays.entries()) {
-    const anchor = tickDays.length === 1 ? "middle" : i === 0 ? "start" : i === tickDays.length - 1 ? "end" : "middle";
-    el("text", { x: sx(Date.parse(d)), y: height - 6, "text-anchor": anchor }, svg).textContent = d;
+  // Ticks at midnight UTC, at least 110px apart.
+  const dayMs = 86400000;
+  const every = Math.ceil((x1 - x0) / dayMs / Math.max(1, Math.floor((width - left - right) / 110)));
+  const tickXs = [];
+  for (let d = Math.ceil(x0 / dayMs); d * dayMs <= x1; d += every) tickXs.push(d * dayMs);
+  if (!tickXs.length) tickXs.push(x0);
+  for (const x of tickXs) {
+    const anchor = sx(x) < left + 40 ? "start" : sx(x) > width - right - 40 ? "end" : "middle";
+    el("text", { x: sx(x), y: height - 6, "text-anchor": anchor }, svg).textContent = day(x);
+  }
+  for (const x of rebases) {
+    if (x < x0 || x > x1) continue;
+    el("line", { x1: sx(x), x2: sx(x), y1: top, y2: height - bottom, stroke: "var(--muted)",
+      "stroke-dasharray": "1 3" }, svg);
+    const end = sx(x) > width - right - 60;
+    el("text", { x: sx(x) + (end ? -4 : 4), y: top + 10, "text-anchor": end ? "end" : "start" }, svg)
+      .textContent = "rebase";
   }
   for (const s of series) {
     if (!s.points.length) continue;
@@ -268,18 +307,19 @@ function drawChart(series) {
   svg.addEventListener("pointermove", event => {
     const box = svg.getBoundingClientRect();
     const x = x0 + (event.clientX - box.left - left) / (width - left - right) * (x1 - x0);
-    const d = days.reduce((best, d) => Math.abs(Date.parse(d) - x) < Math.abs(Date.parse(best) - x) ? d : best);
-    cursor.setAttribute("x1", sx(Date.parse(d)));
-    cursor.setAttribute("x2", sx(Date.parse(d)));
+    const t = targets.reduce((best, t) => Math.abs(t - x) < Math.abs(best - x) ? t : best);
+    cursor.setAttribute("x1", sx(t));
+    cursor.setAttribute("x2", sx(t));
     cursor.setAttribute("visibility", "visible");
     const lines = series.map(s => {
-      const p = s.points.find(p => day(p.x) === d);
+      const p = s.points.find(p => s.byDay ? day(p.x) === day(t) : p.x === t);
       return p ? `<div style="color:${s.color}">${escape(s.label)}: <b>${p.y.toFixed(1)}%</b>
         <small>${escape(p.run.product_revision.replace(/^Servo /, "").slice(0, 15))}</small></div>` : "";
     }).join("");
-    tooltip.innerHTML = `<div>${d}</div>${lines}`;
+    const time = `${new Date(t).toISOString().slice(11, 16)} UTC${rebases.has(t) ? ", rebased" : ""}`;
+    tooltip.innerHTML = `<div>${names.has(t) ? `${escape(names.get(t))} <small>${time}</small>` : day(t)}</div>${lines}`;
     tooltip.hidden = false;
-    const px = sx(Date.parse(d)) / width * box.width;
+    const px = sx(t) / width * box.width;
     tooltip.style.left = `${Math.min(px + 12, box.width - tooltip.offsetWidth)}px`;
     tooltip.style.top = "8px";
   });
@@ -300,7 +340,7 @@ function drawTable(area, metric) {
     return `<td>${value === null ? "–" : `${value.toFixed(1)}% <small>${tuple[0]}</small>`}</td>`;
   };
   const head = `<thead><tr><th>Directory</th>${configs.map(c =>
-    `<th style="color:${c.color}">${escape(c.label)}<br><small>${c.latest.run.date.slice(0, 10)}</small></th>`)
+    `<th style="color:${c.color}">${escape(c.label)}<br><small>${escape(c.latest.run.name)}</small></th>`)
     .join("")}</tr></thead>`;
   const current = `<tr class="current"><td>${escape(area ? area.split("/").pop() : "All tests")}</td>${
     configs.map(c => cell(c, area)).join("")}</tr>`;
@@ -395,7 +435,7 @@ async function drawChanges(area) {
     }).join("");
     const more = changes.length > MAX_CHANGES ? `<p>and ${changes.length - MAX_CHANGES} more.</p>` : "";
     return `<h2 style="color:${c.color}">${escape(c.label)}: ${changes.length} changed tests
-      <small>${list.previous.slice(0, 10)} → ${list.run.slice(0, 10)}, <span class="better">${better} better</span>,
+      <small>${escape(list.previous)} → ${escape(list.run)}, <span class="better">${better} better</span>,
       <span class="worse">${worse} worse</span></small></h2>${changes.length ? `<div class="table-wrap"><table>
       <thead><tr><th>Test</th><th>Previous run</th><th>Latest run</th></tr></thead><tbody>${rows}</tbody></table></div>${more}` : ""}`;
   }).join("");
@@ -410,13 +450,19 @@ async function main() {
     runs: (await fetchJson(`summary/${c.id}/runs.json`)).runs,
     latest: await fetchJson(`summary/${c.id}/latest.json`),
   })));
-  if (!configs.length) {
+  charted = configs.filter(c => !configs.some(other => other.base === c.id));
+  if (!charted.length) {
     $("chart").innerHTML = '<div class="empty">No runs stored yet.</div>';
     return;
   }
-  const upstreamRuns = await fetchJson(`${UPSTREAM.base}/runs.json`);
+  // Not the runs of upstream bases: servo/servo's CI ran them, often days before they are stored.
+  for (const c of charted) {
+    for (const run of c.runs) runTimes.set(run.name, Math.min(runTimes.get(run.name) ?? Infinity, Date.parse(run.date)));
+  }
+  const upstreamRuns = await fetchJson(`${UPSTREAM.url}/runs.json`);
   if (upstreamRuns) upstream = { ...UPSTREAM, runs: upstreamRuns.runs };
-  $("legend").innerHTML = [...configs, ...(upstream ? [{ ...upstream, dashed: true }] : [])]
+  $("legend").innerHTML = [...charted, ...charted.filter(baseOf).map(c => ({ ...baseOf(c), dashed: true })),
+    ...(upstream ? [{ ...upstream, dashed: true }] : [])]
     .map(c => `<span style="--c:${c.color}${c.dashed ? ";--style:dashed" : ""}">${escape(c.label)}</span>`).join("");
   $("period").innerHTML = Object.keys(PERIODS).map(p => `<option>${p}</option>`).join("");
   $("period").value = "Last 3 months";

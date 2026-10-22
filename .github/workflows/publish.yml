@@ -1,8 +1,10 @@
 name: Publish
 
-# Builds the summary of all stored runs and deploys the dashboard to GitHub Pages.
+# Builds the summary of all stored runs and deploys the dashboard to GitHub Pages. store.yml
+# starts it after storing runs.
 on:
-  workflow_call:
+  repository_dispatch:
+    types: [runs-stored]
   workflow_dispatch:
   push:
     branches: [main]

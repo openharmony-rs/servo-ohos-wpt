@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Stores WPT runs in git and builds the dashboard data from them.
 
-Every run is an orphan commit under refs/runs/<config>/<YYYY-MM-DD>. Its tree
-mirrors the WPT test paths, with one JSON file per test that holds only the
-test status and the subtest names and statuses. Results that did not change
-between runs are byte-identical files, which git stores only once. The layout
-follows web-platform-tests/results-analysis-cache. Two files at the root of
-the tree describe the run: `run.json` holds the run info, and `scores.json`
-the scores of every WPT directory, computed once when the run is stored.
+Every run is an orphan commit under refs/runs/<config>/<name>, where the name
+is the date of the run (YYYY-MM-DD), with a .<n> suffix for the later runs of
+the same day (YYYY-MM-DD.2). Its tree mirrors the WPT test paths, with one JSON
+file per test that holds only the test status and the subtest names and
+statuses. Results that did not change between runs are byte-identical files,
+which git stores only once. The layout follows
+web-platform-tests/results-analysis-cache. Two files at the root of the tree
+describe the run: `run.json` holds the run info, and `scores.json` the scores
+of every WPT directory, computed once when the run is stored. A run of
+servo-ohos can record its upstream base, the servo/servo commit that the tested
+revision is based on.
 
 The dashboard data uses the summary format of DioxusLabs/blitz-wpt-results.
 """
@@ -17,6 +21,7 @@ import gzip
 import json
 import lzma
 import math
+import os
 import re
 import shutil
 import subprocess
@@ -31,13 +36,14 @@ REF_PREFIX = "refs/runs/"
 RUN_FILE = "run.json"
 SCORES_FILE = "scores.json"
 CONFIG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+NAME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:\.(?:[2-9]|[1-9]\d+))?$")
+REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 VERSION_RE = re.compile(r"^(?:Version: )?Servo (\S+?)(?:-dirty)?$")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def git(*args: str, input: bytes | None = None) -> bytes:
-    return subprocess.run(["git", *args], input=input, stdout=subprocess.PIPE, check=True).stdout
+def git(*args: str, input: bytes | None = None, env: dict[str, str] | None = None) -> bytes:
+    return subprocess.run(["git", *args], input=input, stdout=subprocess.PIPE, check=True, env=env).stdout
 
 
 def ref_exists(ref: str) -> bool:
@@ -46,10 +52,16 @@ def ref_exists(ref: str) -> bool:
 
 
 def run_ref(run: str) -> str:
-    config, _, date = run.partition("/")
-    if not CONFIG_RE.match(config) or not DATE_RE.match(date):
-        sys.exit(f"invalid run '{run}', expected <config>/<YYYY-MM-DD>")
+    config, _, name = run.partition("/")
+    if not CONFIG_RE.match(config) or not NAME_RE.match(name):
+        sys.exit(f"invalid run '{run}', expected <config>/<YYYY-MM-DD>[.<n>]")
     return REF_PREFIX + run
+
+
+def name_key(name: str) -> tuple[str, int]:
+    """Sorts run names by date, and the runs of a day by their number."""
+    date, _, number = name.partition(".")
+    return date, int(number or 1)
 
 
 def cat_files(names: list[str]) -> list[bytes]:
@@ -212,9 +224,9 @@ def committer_identity() -> str:
     return ident.rsplit(" ", 2)[0]
 
 
-def write_run(config: str, date: str, report: dict, wpt: str, force: bool) -> None:
-    """Writes a merged report as the orphan commit refs/runs/<config>/<date>."""
-    ref = run_ref(f"{config}/{date}")
+def write_run(config: str, name: str, report: dict, wpt: str, force: bool) -> None:
+    """Writes a merged report as the orphan commit refs/runs/<config>/<name>."""
+    ref = run_ref(f"{config}/{name}")
     if ref_exists(ref) and not force:
         sys.exit(f"{ref} already exists, pass --force to replace it")
 
@@ -236,23 +248,25 @@ def write_run(config: str, date: str, report: dict, wpt: str, force: bool) -> No
 
     run = {
         "config": config,
-        "date": date,
+        "date": name.partition(".")[0],
         "time_start": report["time_start"],
         "time_end": report["time_end"],
         "run_info": report["run_info"],
     }
+    if report.get("base_revision"):
+        run["base_revision"] = report["base_revision"]
     scores = score_report(report, wpt)
     areas = ",\n".join(f"{json.dumps(area)}:{json.dumps(value)}" for area, value in scores["areas"].items())
-    for name, text in [
+    for file, text in [
         (RUN_FILE, json.dumps(run, indent=1)),
         (SCORES_FILE, f'{{"scorer":{json.dumps(scores["scorer"])},"areas":{{\n{areas}\n}}}}'),
     ]:
         content = text.encode() + b"\n"
-        entries.append(b"M 100644 inline %s\ndata %d\n%s\n" % (name.encode(), len(content), content))
+        entries.append(b"M 100644 inline %s\ndata %d\n%s\n" % (file.encode(), len(content), content))
 
     info = report["run_info"]
     version = info.get("browser_version") or "unknown version"
-    message = f"{config} {date}\n\n{version} ({info.get('revision')})\n".encode()
+    message = f"{config} {name}\n\n{version} ({info.get('revision')})\n".encode()
     stream = b"".join(
         [
             *blobs,
@@ -287,23 +301,26 @@ def export_run(ref: str) -> dict:
     for path, oid in files.items():
         test = test_id(path)
         results[test] = {"test": test, "duration": 0, "subtests": [], **json.loads(blobs[oid])}
-    return {
+    report = {
         "run_info": run["run_info"],
         "time_start": run["time_start"],
         "time_end": run["time_end"],
         "results": results,
     }
+    if "base_revision" in run:
+        report["base_revision"] = run["base_revision"]
+    return report
 
 
 def stored_runs() -> dict[str, dict[str, str]]:
-    """Returns {config: {date: commit}} for all stored runs."""
+    """Returns {config: {name: commit}} for all stored runs."""
     runs: dict[str, dict[str, str]] = {}
     out = git("for-each-ref", "--format=%(refname) %(objectname)", REF_PREFIX).decode()
     for line in out.splitlines():
         ref, oid = line.split(" ")
-        config, _, date = ref.removeprefix(REF_PREFIX).partition("/")
-        if CONFIG_RE.match(config) and DATE_RE.match(date):
-            runs.setdefault(config, {})[date] = oid
+        config, _, name = ref.removeprefix(REF_PREFIX).partition("/")
+        if CONFIG_RE.match(config) and NAME_RE.match(name):
+            runs.setdefault(config, {})[name] = oid
     return runs
 
 
@@ -312,7 +329,10 @@ def read_run_files(commits: list[str], name: str) -> list[dict]:
 
 
 def store(args: argparse.Namespace) -> None:
-    write_run(args.config, args.date, merge_reports(args.reports), args.wpt, args.force)
+    report = merge_reports(args.reports)
+    if args.base_revision:
+        report["base_revision"] = args.base_revision
+    write_run(args.config, args.name, report, args.wpt, args.force)
 
 
 def export(args: argparse.Namespace) -> None:
@@ -325,36 +345,70 @@ def export(args: argparse.Namespace) -> None:
 
 
 def list_runs(args: argparse.Namespace) -> None:
-    for config, dates in sorted(stored_runs().items()):
+    for config, names in sorted(stored_runs().items()):
         if args.config in (None, config):
-            ordered = sorted(dates.items())
+            ordered = sorted(names.items(), key=lambda item: name_key(item[0]))
             runs = read_run_files([oid for _, oid in ordered], RUN_FILE)
-            for (date, _), run in zip(ordered, runs, strict=True):
-                print(f"{config}/{date} {run['run_info'].get('revision')}")
+            for (name, _), run in zip(ordered, runs, strict=True):
+                base = f" base {run['base_revision']}" if "base_revision" in run else ""
+                print(f"{config}/{name} {run['run_info'].get('revision')}{base}")
 
 
 def tested(args: argparse.Namespace) -> None:
     """Exits with 0 if a run of the configuration tested the revision, and 1 otherwise."""
-    dates = stored_runs().get(args.config, {})
-    for date, run in zip(dates, read_run_files(list(dates.values()), RUN_FILE), strict=True):
+    names = stored_runs().get(args.config, {})
+    for name, run in zip(names, read_run_files(list(names.values()), RUN_FILE), strict=True):
         if run["run_info"].get("revision") == args.revision:
-            print(f"{args.config}/{date} tested {args.revision}")
+            print(f"{args.config}/{name} tested {args.revision}")
             return
     sys.exit(1)
 
 
+def next_name(args: argparse.Namespace) -> None:
+    """Prints the name of a new run: the date, with a .<n> suffix after the last run of the day."""
+    date = datetime.now(UTC).strftime("%Y-%m-%d")
+    numbers = [name_key(name)[1] for names in stored_runs().values() for name in names if name_key(name)[0] == date]
+    print(f"{date}.{max(numbers) + 1}" if numbers else date)
+
+
+def set_base(args: argparse.Namespace) -> None:
+    """Records the upstream base of stored runs. Only run.json changes, the rest of the commit is kept."""
+    for run_name in args.runs:
+        ref = run_ref(run_name)
+        if not ref_exists(ref):
+            sys.exit(f"{ref} does not exist")
+        old = git("rev-parse", ref).decode().strip()
+        run = json.loads(cat_files([f"{old}:{RUN_FILE}"])[0])
+        run["base_revision"] = args.base
+        content = (json.dumps(run, indent=1) + "\n").encode()
+        blob = git("hash-object", "-w", "--stdin", input=content).strip()
+        entries = [e for e in git("ls-tree", "-z", old).split(b"\0") if e and not e.endswith(b"\t" + RUN_FILE.encode())]
+        entries.append(b"100644 blob %s\t%s" % (blob, RUN_FILE.encode()))
+        tree = git("mktree", "-z", input=b"\0".join(entries) + b"\0").decode().strip()
+        names = ["AUTHOR_NAME", "AUTHOR_EMAIL", "AUTHOR_DATE", "COMMITTER_NAME", "COMMITTER_EMAIL", "COMMITTER_DATE"]
+        values = git("log", "-1", "--date=raw", "--format=%an%n%ae%n%ad%n%cn%n%ce%n%cd", old).decode().splitlines()
+        env = os.environ | {f"GIT_{name}": value for name, value in zip(names, values, strict=True)}
+        message = git("log", "-1", "--format=%B", old).rstrip(b"\n") + b"\n"
+        new = git("commit-tree", tree, input=message, env=env).decode().strip()
+        git("update-ref", ref, new, old)
+        print(f"{ref}: base {args.base}")
+
+
 def rescore(args: argparse.Namespace) -> None:
-    for config, dates in sorted(stored_runs().items()):
+    for config, names in sorted(stored_runs().items()):
         if args.config in (None, config):
-            for date, oid in sorted(dates.items()):
-                write_run(config, date, export_run(oid), args.wpt, force=True)
+            for name, oid in sorted(names.items(), key=lambda item: name_key(item[0])):
+                write_run(config, name, export_run(oid), args.wpt, force=True)
 
 
-def run_meta(run: dict) -> dict:
-    """The run metadata of the blitz-wpt-results summary format."""
+def run_meta(name: str, run: dict) -> dict:
+    """The run metadata of the blitz-wpt-results summary format, plus the run name and the upstream base."""
     revision = run["run_info"].get("revision") or ""
     date = datetime.fromtimestamp(run["time_start"] / 1000, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return {"date": date, "wpt_revision": revision[:9], "product_revision": revision}
+    meta = {"name": name, "date": date, "wpt_revision": revision[:9], "product_revision": revision}
+    if "base_revision" in run:
+        meta["base_revision"] = run["base_revision"]
+    return meta
 
 
 def write_json_lines(path: Path, key: str, lines: list) -> None:
@@ -422,18 +476,40 @@ def site(args: argparse.Namespace) -> None:
     known = json.loads((REPO_ROOT / "configs.json").read_text())
     order = {c["id"]: slot for slot, c in enumerate(known)}
     labels = {c["id"]: c["label"] for c in known}
+    bases = {c["id"]: c["base"] for c in known if "base" in c}
     all_runs = stored_runs()
+    metas = {
+        config: [
+            run_meta(name, run) for name, run in zip(names, read_run_files(list(names.values()), RUN_FILE), strict=True)
+        ]
+        for config, names in all_runs.items()
+    }
+    # The runs of an upstream base are ordered by the first run based on them, so that the latest one is the base
+    # of the latest run, also when an older base was tested later.
+    first_use: dict[tuple[str, str], str] = {}
+    for config, base in bases.items():
+        for run in metas.get(config, []):
+            if "base_revision" in run:
+                key = (base, run["base_revision"])
+                first_use[key] = min(first_use.get(key, run["date"]), run["date"])
     index = []
     for config in sorted(all_runs, key=lambda c: (order.get(c, len(order)), c)):
         commits = list(all_runs[config].values())
-        runs = [run_meta(run) for run in read_run_files(commits, RUN_FILE)]
-        by_date = sorted(range(len(runs)), key=lambda i: (runs[i]["date"], runs[i]["product_revision"]))
+        runs = metas[config]
+        by_date = sorted(
+            range(len(runs)),
+            key=lambda i: (
+                first_use.get((config, runs[i]["product_revision"]), runs[i]["date"]),
+                runs[i]["date"],
+                runs[i]["product_revision"],
+            ),
+        )
         commits = [commits[i] for i in by_date]
         runs = [runs[i] for i in by_date]
         scores = [s["areas"] for s in read_run_files(commits, SCORES_FILE)]
         write_summary(out / "summary" / config, runs, scores)
         previous = export_run(commits[-2]) if len(commits) > 1 else None
-        header = {"run": runs[-1]["date"], "previous": runs[-2]["date"] if previous else None}
+        header = {"run": runs[-1]["name"], "previous": runs[-2]["name"] if previous else None}
         write_tests(out / "summary" / config, export_run(commits[-1]), previous, header)
         index.append(
             {
@@ -441,6 +517,7 @@ def site(args: argparse.Namespace) -> None:
                 "label": labels.get(config, config),
                 "slot": order.get(config, len(order) + len(index)),
                 "runs": len(runs),
+                **({"base": bases[config]} if config in bases else {}),
             }
         )
     (out / "summary").mkdir(exist_ok=True)
@@ -464,18 +541,28 @@ def main() -> None:
 
     p = commands.add_parser("store", help="store a run from wptreport files (JSON or JSON Lines, optionally .gz/.xz)")
     p.add_argument("--config", required=True, type=matching(CONFIG_RE, "configuration name"))
-    p.add_argument("--date", required=True, type=matching(DATE_RE, "date"), help="YYYY-MM-DD")
+    p.add_argument(
+        "--name",
+        required=True,
+        type=matching(NAME_RE, "run name"),
+        help="YYYY-MM-DD, or YYYY-MM-DD.<n> for a later run of the same day",
+    )
+    p.add_argument(
+        "--base-revision",
+        type=matching(REVISION_RE, "revision"),
+        help="the servo/servo commit that the tested revision is based on",
+    )
     p.add_argument("--force", action="store_true", help="replace an existing run")
     p.add_argument("--wpt", default="wpt", help=wpt_help)
     p.add_argument("reports", nargs="+", type=Path)
     p.set_defaults(func=store)
 
     p = commands.add_parser("export", help="write a stored run as a wptreport")
-    p.add_argument("run", help="<config>/<YYYY-MM-DD>")
+    p.add_argument("run", help="<config>/<name>")
     p.add_argument("-o", "--output")
     p.set_defaults(func=export)
 
-    p = commands.add_parser("list", help="list the stored runs and the revision they tested")
+    p = commands.add_parser("list", help="list the stored runs, the revision they tested and its upstream base")
     p.add_argument("config", nargs="?")
     p.set_defaults(func=list_runs)
 
@@ -483,6 +570,14 @@ def main() -> None:
     p.add_argument("--config", required=True)
     p.add_argument("revision")
     p.set_defaults(func=tested)
+
+    p = commands.add_parser("next-name", help="print the name of a new run of today")
+    p.set_defaults(func=next_name)
+
+    p = commands.add_parser("set-base", help="record the upstream base of stored runs")
+    p.add_argument("base", type=matching(REVISION_RE, "revision"), help="the servo/servo commit")
+    p.add_argument("runs", nargs="+", help="<config>/<name>")
+    p.set_defaults(func=set_base)
 
     p = commands.add_parser("rescore", help="recompute the scores of stored runs, e.g. after a wpt update")
     p.add_argument("config", nargs="?")

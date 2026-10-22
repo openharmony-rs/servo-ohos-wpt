@@ -12,15 +12,30 @@ fetch:
 list config="":
     python3 scripts/wpt_store.py list {{ config }}
 
-# Store wptreport files as the run <config>/<date>
-store config date +reports:
-    python3 scripts/wpt_store.py store --wpt {{ wpt }} --config {{ config }} --date {{ date }} {{ reports }}
+# Store wptreport files as the run <config>/<name>, e.g. `just store linux-spidermonkey 2026-10-08.2 wptreport/*.json`
+store config name +reports:
+    python3 scripts/wpt_store.py store --wpt {{ wpt }} --config {{ config }} --name {{ name }} {{ reports }}
+
+# Store the WPT results of servo/servo's CI for an upstream commit, e.g. the base of older runs
+store-upstream commit:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if python3 scripts/wpt_store.py tested --config upstream-linux-spidermonkey {{ commit }}; then exit 0; fi
+    tmp=$(mktemp -d)
+    trap 'rm -rf "${tmp:?}"' EXIT
+    scripts/upstream_reports.sh {{ commit }} "$tmp"
+    name=$(python3 scripts/wpt_store.py next-name)
+    python3 scripts/wpt_store.py store --wpt {{ wpt }} --config upstream-linux-spidermonkey --name "$name" "$tmp"/*.json
+
+# Record the servo/servo commit that the tested revision of stored runs is based on
+set-base base +runs:
+    python3 scripts/wpt_store.py set-base {{ base }} {{ runs }}
 
 # Recompute the scores of the stored runs, e.g. after updating the wpt CLI
 rescore config="":
     python3 scripts/wpt_store.py rescore --wpt {{ wpt }} {{ config }}
 
-# Write the stored run <config>/<date> as a wptreport
+# Write the stored run <config>/<name> as a wptreport
 export run output:
     python3 scripts/wpt_store.py export {{ run }} -o {{ output }}
 
@@ -50,4 +65,5 @@ fmt:
 lint:
     uvx ruff format --check scripts
     uvx ruff check scripts
+    shellcheck scripts/*.sh
     actionlint
