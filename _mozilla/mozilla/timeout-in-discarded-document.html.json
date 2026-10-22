@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Timeout in a discarded document doesn't break the browser.","status":"PASS"}]}

@@ -1,0 +1,31 @@
+{
+ "config": "linux-quickjs",
+ "date": "2026-10-22",
+ "time_start": 1792681561771,
+ "time_end": 1792683789525,
+ "run_info": {
+  "os": "linux",
+  "processor": "x86_64",
+  "version": "Ubuntu 22.04",
+  "os_version": "22.04",
+  "bits": 64,
+  "has_sandbox": true,
+  "display": null,
+  "automation": false,
+  "linux_distro": "Ubuntu",
+  "apple_silicon": false,
+  "apple_catalina": false,
+  "win10_2004": false,
+  "win10_2009": false,
+  "win11_2009": false,
+  "js_engine": "quickjs",
+  "revision": "67173a4bf2beb815d10c1b339441d6b6a76ac16d",
+  "python_version": 3,
+  "product": "servo",
+  "debug": false,
+  "verify": false,
+  "wasm": false,
+  "headless": false
+ },
+ "base_revision": "8cd4f60da15ccbc30d5f1b9935d17bb0a5c0ce40"
+}
