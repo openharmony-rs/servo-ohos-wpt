@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Simple initialization checks","status":"PASS"},{"name":"menuitem initial state","status":"FAIL"},{"name":"Document elements tests","status":"PASS"},{"name":"JS tests (Button, Input, Select, TextArea)","status":"PASS"},{"name":"JS tests (Option)","status":"PASS"}]}

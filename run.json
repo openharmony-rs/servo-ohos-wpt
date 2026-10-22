@@ -1,0 +1,31 @@
+{
+ "config": "linux-spidermonkey",
+ "date": "2026-10-22",
+ "time_start": 1792667495097,
+ "time_end": 1792670034358,
+ "run_info": {
+  "os": "linux",
+  "processor": "x86_64",
+  "version": "Ubuntu 22.04",
+  "os_version": "22.04",
+  "bits": 64,
+  "has_sandbox": true,
+  "display": null,
+  "automation": false,
+  "linux_distro": "Ubuntu",
+  "apple_silicon": false,
+  "apple_catalina": false,
+  "win10_2004": false,
+  "win10_2009": false,
+  "win11_2009": false,
+  "js_engine": "spidermonkey",
+  "revision": "1773050c71b57978c8e963e9b91ab2afa238ec84",
+  "python_version": 3,
+  "product": "servo",
+  "debug": false,
+  "verify": false,
+  "wasm": false,
+  "headless": false
+ },
+ "base_revision": "5979b83191aecc9b32b3e61180dd7efa3dbdc1e8"
+}

@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"staticThrowToRejectPromise","status":"PASS"},{"name":"methodThrowToRejectPromise","status":"PASS"},{"name":"getterThrowToRejectPromise","status":"PASS"},{"name":"staticInternalThrowToRejectPromise","status":"PASS"},{"name":"methodInternalThrowToRejectPromise","status":"PASS"},{"name":"exception in JS Promise","status":"PASS"}]}
