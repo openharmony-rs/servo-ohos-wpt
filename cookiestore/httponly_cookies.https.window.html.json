@@ -1,0 +1,1 @@
+{"status":"TIMEOUT","subtests":[{"name":"HttpOnly cookies are not observed","status":"TIMEOUT"},{"name":"HttpOnly cookies can not be set by document.cookie","status":"NOTRUN"},{"name":"HttpOnly cookies can not be set by CookieStore","status":"NOTRUN"},{"name":"HttpOnly cookies are not deleted/overwritten","status":"NOTRUN"}]}
