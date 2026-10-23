@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Double and triple click with soft wrap works as expected","status":"PASS"},{"name":"Double and triple click with no line wrap works as expected","status":"PASS"},{"name":"Double and triple click with hard line breaks works as expected","status":"PASS"},{"name":"Double and triple click with <pre> element works as expected","status":"PASS"}]}
