@@ -13,10 +13,13 @@ results come from the CI of servo-ohos and of servo/servo.
 | `linux-spidermonkey`          | the Linux WPT job of servo-ohos for an `ohos-main` push, `checked-release`, 20 chunks |
 | `linux-quickjs`               | the QuickJS WPT job of the same servo-ohos run, on the servo-quickjs commit that `ohos-main` pins |
 | `upstream-linux-spidermonkey` | the Linux WPT job of servo/servo's merge queue for the commit that `ohos-main` is based on |
+| `ohos-dayu200-spidermonkey`   | servo-ohos's nightly device WPT run on a DAYU200 board, `checked-release`, a subset of WPT in one chunk |
 
 Until 2026-10-22, this repository built servoshell (`release`) and ran WPT itself; those runs
-are kept. Runs on OpenHarmony are planned. Each configuration has its own score history, and two runs
-of different configurations can be compared with `just diff`.
+are kept. Each configuration has its own score history, and two runs of different configurations
+can be compared with `just diff`. The DAYU200 runs only cover a subset of WPT, the one set in
+servo-ohos's `ohos-device-wpt.yml`, so their total score is the pass rate of that subset; compare them
+with the other configurations per directory.
 
 The runs of servo-ohos record their upstream base, the servo/servo commit that the tested
 revision is based on (its merge base with servo/servo `main`). The dashboard draws the
@@ -114,6 +117,9 @@ and `.gz`/`.xz`. When a test appears more than once, the last result wins.
   `ohos-main`, and then calls `store.yml` of this repository. Its runs go one at a time, so
   `store.yml` never runs twice at once; of several pushes waiting for a run, only the latest
   runs.
+- servo-ohos's `ohos-device-wpt.yml` runs a subset of WPT every night on the DAYU200 board of a
+  self-hosted runner, when `ohos-main` changed since its last stored run, and calls `store.yml`
+  with `chunks: 1` and `upstream: false`.
 - `store.yml` runs in servo-ohos. It stores the results of the configurations that have all
   their chunks and no run of the revision yet. It looks up the upstream base with the GitHub
   compare API and, unless it has a run already, stores the results of servo/servo's CI for it,

@@ -1,8 +1,9 @@
 name: Store WPT results
 
-# Called by the servo-ohos workflow that runs WPT on every ohos-main commit. Stores the WPT
-# results of the calling workflow run, and those of servo/servo's CI for the upstream commit
-# that the revision is based on, as runs of this repository, and then starts publish.yml.
+# Called by the servo-ohos workflows that run WPT: on every ohos-main commit, and nightly on a
+# DAYU200 board. Stores the WPT results of the calling workflow run, and those of servo/servo's CI
+# for the upstream commit that the revision is based on, as runs of this repository, and then
+# starts publish.yml.
 #
 # The job runs in servo-ohos, in its `servo-ohos-wpt` environment, whose SERVO_OHOS_WPT_TOKEN
 # secret is a token with read and write access to the contents of this repository. The caller
@@ -18,6 +19,10 @@ on:
         description: The number of WPT chunks of a complete run
         default: 20
         type: number
+      upstream:
+        description: Also store the results of servo/servo's CI for the upstream base, in 20 chunks
+        default: true
+        type: boolean
     secrets:
       SERVO_OHOS_WPT_TOKEN:
         required: true
@@ -25,6 +30,8 @@ on:
 env:
   RESULTS_REPOSITORY: openharmony-rs/servo-ohos-wpt
   UPSTREAM_CONFIG: upstream-linux-spidermonkey
+  # servo/servo's merge queue runs WPT in 20 chunks.
+  UPSTREAM_CHUNKS: 20
   WPT_CLI_VERSION: 0.1.1
 
 jobs:
@@ -56,6 +63,7 @@ jobs:
         env:
           ARTIFACTS: ${{ inputs.artifacts }}
           CHUNKS: ${{ inputs.chunks }}
+          UPSTREAM: ${{ inputs.upstream }}
           REVISION: ${{ github.sha }}
           GH_TOKEN: ${{ secrets.SERVO_OHOS_WPT_TOKEN }}
         run: |
@@ -92,8 +100,9 @@ jobs:
             fi
             refs+=("refs/runs/$config/$name")
           done
-          if [ -n "$base" ] && ! python3 scripts/wpt_store.py tested --config "$UPSTREAM_CONFIG" "$base"; then
-            if scripts/upstream_reports.sh "$base" upstream "$CHUNKS" &&
+          if [ "$UPSTREAM" = true ] && [ -n "$base" ] &&
+            ! python3 scripts/wpt_store.py tested --config "$UPSTREAM_CONFIG" "$base"; then
+            if scripts/upstream_reports.sh "$base" upstream "$UPSTREAM_CHUNKS" &&
               python3 scripts/wpt_store.py store --config "$UPSTREAM_CONFIG" --name "$name" upstream/*.json; then
               refs+=("refs/runs/$UPSTREAM_CONFIG/$name")
             else

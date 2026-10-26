@@ -3,5 +3,6 @@
   { "id": "linux-quickjs", "label": "Linux, QuickJS" },
   { "id": "upstream-linux-spidermonkey", "label": "Upstream base, Linux, SpiderMonkey" },
   { "id": "ohos-spidermonkey", "label": "OpenHarmony, SpiderMonkey" },
-  { "id": "ohos-quickjs", "label": "OpenHarmony, QuickJS" }
+  { "id": "ohos-quickjs", "label": "OpenHarmony, QuickJS" },
+  { "id": "ohos-dayu200-spidermonkey", "label": "OpenHarmony DAYU200, SpiderMonkey, nightly subset" }
 ]
