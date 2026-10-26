@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"'<script>new FileReader().readAsArrayBuffer(new Blob([\"content\"]));</script>' does not leak the document","status":"PASS"},{"name":"'<script>window.reader = new FileReader(); window.reader.readAsArrayBuffer(new Blob([\"content\"]));</script>' does not leak the document","status":"PASS"}]}

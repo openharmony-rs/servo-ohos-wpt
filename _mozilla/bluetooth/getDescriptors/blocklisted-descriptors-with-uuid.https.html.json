@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"The descriptor is blocklisted. Should reject with SecurityError.","status":"FAIL"}]}
