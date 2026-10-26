@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Ensure that the window.scrollBy function affects scroll position as expected","status":"PASS"}]}
