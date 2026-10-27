@@ -4,80 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Servo OpenHarmony WPT</title>
-<style>
-  :root {
-    color-scheme: light dark;
-    --bg: #ffffff;
-    --fg: #1f2328;
-    --muted: #59636e;
-    --grid: #d8dee4;
-    --border: #d1d9e0;
-    --stripe: #f6f8fa;
-    --series-1: #2a6fdb;
-    --series-2: #d4632a;
-    --series-3: #1f9e6e;
-    --series-4: #a34fd1;
-    --upstream: #8c959f;
-    --better: #1a7f37;
-    --worse: #cf222e;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0d1117;
-      --fg: #e6edf3;
-      --muted: #9198a1;
-      --grid: #30363d;
-      --border: #3d444d;
-      --stripe: #151b23;
-      --series-1: #6ea8fe;
-      --series-2: #f0955f;
-      --series-3: #4cc79a;
-      --series-4: #c58af0;
-      --upstream: #8b949e;
-      --better: #3fb950;
-      --worse: #f85149;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0 auto;
-    max-width: 1100px;
-    padding: 24px 16px 48px;
-    background: var(--bg);
-    color: var(--fg);
-    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-  h1 { font-size: 1.5rem; margin: 0 0 4px; }
-  h2 { font-size: 1.1rem; margin: 32px 0 8px; }
-  p { margin: 0 0 16px; color: var(--muted); }
-  a { color: var(--series-1); }
-  .controls { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 16px 0; }
-  label { display: flex; flex-direction: column; font-size: 0.85rem; color: var(--muted); gap: 4px; }
-  select { font: inherit; padding: 4px 8px; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-bottom: 8px; font-size: 0.9rem; }
-  .legend span::before { content: ""; display: inline-block; width: 14px; height: 0; margin: 0 6px 4px 0; border-top: 3px var(--style, solid) var(--c); }
-  .note { font-size: 0.85rem; margin: 0 0 8px; }
-  #chart { position: relative; width: 100%; }
-  #chart svg { display: block; width: 100%; height: 340px; overflow: visible; }
-  #chart text { fill: var(--muted); font-size: 12px; }
-  .tooltip {
-    position: absolute; pointer-events: none; padding: 6px 10px; font-size: 0.85rem; white-space: nowrap;
-    background: var(--bg); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
-  }
-  .table-wrap { overflow-x: auto; margin-top: 24px; }
-  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
-  th, td { padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
-  th:first-child, td:first-child { text-align: left; }
-  tbody tr:nth-child(odd) { background: var(--stripe); }
-  .empty { padding: 48px 0; text-align: center; color: var(--muted); }
-  .crumbs { margin: 16px 0 0; font-size: 1.05rem; }
-  .crumbs a, td a { text-decoration: none; }
-  .crumbs a:hover, td a:hover { text-decoration: underline; }
-  tr.current td { font-weight: 600; }
-  small { color: var(--muted); font-weight: normal; }
-  .better { color: var(--better); }
-  .worse { color: var(--worse); }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <h1>Servo OpenHarmony WPT pass rates</h1>
@@ -166,6 +93,11 @@ function el(tag, attrs, parent) {
 
 function escape(text) {
   return String(text).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+}
+
+// A configuration name for a table heading, one line per comma-separated part.
+function labelLines(label) {
+  return escape(label).replaceAll(", ", ",<br>");
 }
 
 function baseOf(config) {
@@ -340,7 +272,7 @@ function drawTable(area, metric) {
     return `<td>${value === null ? "–" : `${value.toFixed(1)}% <small>${tuple[0]}</small>`}</td>`;
   };
   const head = `<thead><tr><th>Directory</th>${configs.map(c =>
-    `<th style="color:${c.color}">${escape(c.label)}<br><small>${escape(c.latest.run.name)}</small></th>`)
+    `<th style="color:${c.color}">${labelLines(c.label)}<br><small>${escape(c.latest.run.name)}</small></th>`)
     .join("")}</tr></thead>`;
   const current = `<tr class="current"><td>${escape(area ? area.split("/").pop() : "All tests")}</td>${
     configs.map(c => cell(c, area)).join("")}</tr>`;
@@ -413,7 +345,7 @@ async function drawTests(area) {
     }).join("")}</tr>`).join("");
   $("tests").innerHTML = `<h2>Tests in ${escape(area || "the root directory")}${fyi}</h2>
     <div class="table-wrap"><table><thead><tr><th>Test</th>${configs.map(c =>
-      `<th style="color:${c.color}">${escape(c.label)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
+      `<th style="color:${c.color}">${labelLines(c.label)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 async function drawChanges(area) {
