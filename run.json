@@ -1,0 +1,33 @@
+{
+ "config": "ohos-dayu200-spidermonkey",
+ "date": "2026-10-27",
+ "time_start": 1793088295404,
+ "time_end": 1793093715684,
+ "run_info": {
+  "os": "linux",
+  "processor": "x86_64",
+  "version": "Ubuntu 24.04",
+  "os_version": "24.04",
+  "bits": 64,
+  "has_sandbox": true,
+  "display": null,
+  "automation": false,
+  "linux_distro": "Ubuntu",
+  "apple_silicon": false,
+  "apple_catalina": false,
+  "win10_2004": false,
+  "win10_2009": false,
+  "win11_2009": false,
+  "js_engine": "spidermonkey",
+  "revision": "bf7c1c76aff55cbbf0b654f0d6a5257435a5c3cc",
+  "python_version": 3,
+  "product": "servo_ohos",
+  "debug": false,
+  "verify": false,
+  "wasm": false,
+  "ohos": true,
+  "ohos_api_version": 26,
+  "headless": false
+ },
+ "base_revision": "8cd4f60da15ccbc30d5f1b9935d17bb0a5c0ce40"
+}
