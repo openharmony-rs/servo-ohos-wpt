@@ -72,6 +72,16 @@ jobs:
               [ -s "$1/$chunk.json" ] || return 1
             done
           }
+          # download-artifact puts each artifact into a directory named after it only when the
+          # pattern matched several. A single one ends up in reports/ itself.
+          downloaded=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+            --jq '[.artifacts[] | select(.expired | not) | .name | select(startswith("wpt-full-logs-"))]')
+          if [ "$(jq length <<< "$downloaded")" -eq 1 ]; then
+            single=$(jq -r '.[0]' <<< "$downloaded")
+            mv reports "$single"
+            mkdir reports
+            mv "$single" reports/
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch --no-tags origin "+refs/runs/*:refs/runs/*"
