@@ -66,10 +66,14 @@ th { white-space: normal; vertical-align: bottom; }
 th:first-child, td:first-child { text-align: left; }
 tbody tr:nth-child(odd) { background: var(--stripe); }
 .empty { padding: 48px 0; text-align: center; color: var(--muted); }
-.crumbs { margin: 16px 0 0; font-size: 1.05rem; }
+.crumbs { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; margin: 16px 0 0; font-size: 1.05rem; }
+.crumbs .aside { font-size: 0.9rem; }
 .crumbs a, td a { text-decoration: none; }
 .crumbs a:hover, td a:hover { text-decoration: underline; }
 tr.current td { font-weight: 600; }
 small { color: var(--muted); font-weight: normal; }
 .better { color: var(--better); }
 .worse { color: var(--worse); }
+details summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; }
+details ul { margin: 4px 0 0; padding-left: 18px; font-size: 0.85rem; white-space: normal; }
+td.wrap { white-space: normal; }

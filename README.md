@@ -27,6 +27,12 @@ revision is based on (its merge base with servo/servo `main`). The dashboard dra
 so the gap between the two lines is the effect of the servo-ohos patches, and marks the runs
 whose base differs from the previous run, that is the rebases onto a newer upstream.
 
+`compare.html` shows the differences between OpenHarmony and Linux: the latest run of each
+configuration with `compare` in `configs.json`, test by test, against the run of the configuration it
+names that tested the same commit, or else that configuration's latest run. Only the tests that both
+runs ran count, so per directory both scores are over the same tests; then it lists the tests and
+subtests whose results differ.
+
 ## How runs are stored
 
 Runs are not files on a branch. Each run is an orphan commit under

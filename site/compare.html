@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenHarmony and Linux · Servo OpenHarmony WPT</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>Differences between OpenHarmony and Linux</h1>
+<p>
+  The latest run of an OpenHarmony configuration, test by test, against the run of its Linux configuration
+  that tested the same <code>ohos-main</code> commit. Only the tests that both ran count, so both scores are
+  over the same tests. The score counts each test as the fraction of its subtests that pass.
+  <a href="./">Back to the pass rates</a>.
+</p>
+<nav class="crumbs" id="crumbs"></nav>
+<div class="controls">
+  <label>Configuration <select id="config"></select></label>
+  <label>Tests
+    <select id="filter">
+      <option value="all">All differences</option>
+      <option value="worse">Worse on OpenHarmony</option>
+      <option value="better">Better on OpenHarmony</option>
+      <option value="same">Same score, other results</option>
+    </select>
+  </label>
+</div>
+<p class="note" id="note"></p>
+<div class="table-wrap"><table id="table"></table></div>
+<section id="tests"></section>
+<script>
+const MAX_TESTS = 500;
+const COMMIT = "https://github.com/openharmony-rs/servo-ohos/commit/";
+const $ = id => document.getElementById(id);
+let configs = [];
+
+function escape(text) {
+  return String(text).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+}
+
+function labelLines(label) {
+  return escape(label).replaceAll(", ", ",<br>");
+}
+
+function areaPath(area) {
+  return area.split("/").map(encodeURIComponent).join("/");
+}
+
+function currentArea() {
+  return decodeURIComponent(location.hash.slice(1));
+}
+
+// Splits a test id into its directory and name, like split_test() in scripts/wpt_store.py.
+function splitTest(test) {
+  const query = test.indexOf("?");
+  const slash = test.lastIndexOf("/", query >= 0 ? query : test.length);
+  return [test.slice(1, Math.max(slash, 1)), test.slice(slash + 1)];
+}
+
+function passFraction(status, passed, total) {
+  return total ? passed / total : status === "PASS" ? 1 : 0;
+}
+
+function resultText(status, passed, total) {
+  return total ? `${escape(status)} <small>${passed}/${total}</small>` : escape(status);
+}
+
+function points(value) {
+  const cls = value > 0.05 ? "better" : value < -0.05 ? "worse" : "";
+  return `<span class="${cls}">${value > 0 ? "+" : ""}${value.toFixed(1)}</span>`;
+}
+
+const fetchCache = new Map();
+function fetchJson(url) {
+  if (!fetchCache.has(url)) fetchCache.set(url, fetch(url).then(r => r.ok ? r.json() : null).catch(() => null));
+  return fetchCache.get(url);
+}
+
+async function render() {
+  const config = configs.find(c => c.id === $("config").value);
+  const other = configs.find(c => c.id === config.compare);
+  const data = await fetchJson(`summary/${config.id}/divergences.json`);
+  const area = currentArea();
+  const parts = area ? area.split("/") : [];
+  $("crumbs").innerHTML = `<span>${[`<a href="#">All tests</a>`,
+    ...parts.map((part, i) => `<a href="#${areaPath(parts.slice(0, i + 1).join("/"))}">${escape(part)}</a>`)]
+    .join(" / ")}</span><a class="aside" href="./#${areaPath(area)}">Pass rates of this directory</a>`;
+  document.title = `${area ? `${area} · ` : ""}OpenHarmony and Linux · Servo OpenHarmony WPT`;
+  if (!data) {
+    $("note").textContent = `There is no comparison for ${config.label} yet.`;
+    $("table").replaceChildren();
+    $("tests").replaceChildren();
+    return;
+  }
+  const revision = r => `<a href="${COMMIT}${escape(r)}"><code>${escape(r.slice(0, 11))}</code></a>`;
+  $("note").innerHTML = `${escape(config.label)} run ${escape(data.run)} of ${revision(data.revision)},
+    ${escape(other ? other.label : data.other)} run ${escape(data.other_run)} of ${revision(data.other_revision)}.
+    ${data.revision === data.other_revision ? "" : "<b>They tested different commits.</b>"}`;
+  drawTable(config, other, data, area);
+  drawTests(config, other, data, area);
+}
+
+function drawTable(config, other, data, area) {
+  const parentOf = a => a.includes("/") ? a.slice(0, a.lastIndexOf("/")) : "";
+  const children = Object.keys(data.areas).filter(a => a !== "" && parentOf(a) === area)
+    .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+  const row = (a, name) => {
+    const [tests, score, otherScore, differing] = data.areas[a];
+    return `<tr${a === area ? ' class="current"' : ""}><td>${name}</td><td>${tests}</td>
+      <td>${(100 * score / tests).toFixed(1)}%</td><td>${(100 * otherScore / tests).toFixed(1)}%</td>
+      <td>${points(100 * (score - otherScore) / tests)}</td><td>${differing}</td></tr>`;
+  };
+  if (!data.areas[area]) {
+    $("table").innerHTML = "";
+    return;
+  }
+  $("table").innerHTML = `<thead><tr><th>Directory</th><th>Tests run by both</th>
+    <th style="color:${config.color}">${labelLines(config.label)}</th>
+    <th style="color:${other ? other.color : "inherit"}">${labelLines(other ? other.label : data.other)}</th>
+    <th>Difference<br><small>points</small></th><th>Differing tests</th></tr></thead><tbody>${
+    row(area, escape(area ? area.split("/").pop() : "All tests"))}${
+    children.map(a => row(a, `<a href="#${areaPath(a)}">${escape(a.split("/").pop())}/</a>`)).join("")}</tbody>`;
+}
+
+function drawTests(config, other, data, area) {
+  const filter = $("filter").value;
+  const prefix = area ? `/${area}/` : "/";
+  const rows = data.tests.filter(([test]) => test.startsWith(prefix)).map(row => {
+    const [test, status, passed, total, otherStatus, otherPassed, otherTotal] = row;
+    return { row, delta: passFraction(status, passed, total) - passFraction(otherStatus, otherPassed, otherTotal) };
+  }).filter(({ delta }) => filter === "all" || (filter === "worse" ? delta < 0 : filter === "better" ? delta > 0 : delta === 0))
+    .sort((a, b) => a.delta - b.delta || a.row[0].localeCompare(b.row[0]));
+  const shown = rows.slice(0, MAX_TESTS).map(({ row, delta }) => {
+    const [test, status, passed, total, otherStatus, otherPassed, otherTotal, differing, subtests] = row;
+    const [directory, name] = splitTest(test);
+    const link = directory.startsWith("_") ? escape(test) : `<a href="https://wpt.live${escape(test)}">${escape(test)}</a>`;
+    const details = differing ? `<details><summary>${differing} subtests differ</summary><ul>${subtests.map(
+      ([subtest, mine, theirs]) => `<li>${escape(subtest)}: <b>${escape(mine ?? "missing")}</b> on OpenHarmony,
+        ${escape(theirs ?? "missing")} on Linux</li>`).join("")}${differing > subtests.length
+      ? `<li>and ${differing - subtests.length} more</li>` : ""}</ul></details>` : "";
+    return `<tr><td class="wrap">${link}${details}</td><td>${resultText(status, passed, total)}</td>
+      <td>${resultText(otherStatus, otherPassed, otherTotal)}</td><td>${points(100 * delta)}</td></tr>`;
+  }).join("");
+  const more = rows.length > MAX_TESTS
+    ? `<p>and ${rows.length - MAX_TESTS} more; pick a directory to see them.</p>` : "";
+  $("tests").innerHTML = `<h2>${rows.length} differing tests in ${escape(area || "all directories")}
+    <small>worst on OpenHarmony first</small></h2>${rows.length ? `<div class="table-wrap"><table><thead><tr>
+    <th>Test</th><th style="color:${config.color}">${labelLines(config.label)}</th>
+    <th style="color:${other ? other.color : "inherit"}">${labelLines(other ? other.label : data.other)}</th>
+    <th>Difference<br><small>points</small></th></tr></thead><tbody>${shown}</tbody></table></div>${more}` : ""}`;
+}
+
+async function main() {
+  const index = await (await fetch("summary/index.json")).json();
+  configs = index.configs.map(c => ({ ...c, color: `var(--series-${c.slot % 4 + 1})` }));
+  const compared = configs.filter(c => c.compare);
+  if (!compared.length) {
+    $("note").textContent = "No configuration is compared with another one yet.";
+    return;
+  }
+  $("config").innerHTML = compared.map(c => `<option value="${escape(c.id)}">${escape(c.label)}</option>`).join("");
+  const wanted = new URLSearchParams(location.search).get("config");
+  if (compared.some(c => c.id === wanted)) $("config").value = wanted;
+  $("config").addEventListener("change", () => {
+    const url = new URL(location);
+    url.searchParams.set("config", $("config").value);
+    history.replaceState(null, "", url);
+    render();
+  });
+  $("filter").addEventListener("change", render);
+  addEventListener("hashchange", render);
+  await render();
+}
+
+main().catch(error => {
+  $("note").textContent = `Could not load the comparison: ${error}`;
+});
+</script>
+</body>
+</html>

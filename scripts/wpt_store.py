@@ -40,6 +40,8 @@ NAME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:\.(?:[2-9]|[1-9]\d+))?$")
 REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 VERSION_RE = re.compile(r"^(?:Version: )?Servo (\S+?)(?:-dirty)?$")
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# The differing subtests that divergences.json lists per test.
+MAX_SUBTESTS = 50
 
 
 def git(*args: str, input: bytes | None = None, env: dict[str, str] | None = None) -> bytes:
@@ -468,6 +470,64 @@ def write_tests(directory: Path, latest: dict, previous: dict | None, header: di
     )
 
 
+def pass_fraction(summary: list) -> float:
+    """The fraction of passing subtests of a [status, subtests passed, subtests] summary, like the site's."""
+    status, passed, total = summary
+    return passed / total if total else float(status == "PASS")
+
+
+def differing_subtests(result: dict, other: dict) -> list[list]:
+    """[name, status, other status] of the subtests whose status differs, None for a missing subtest."""
+    statuses = {s["name"]: s["status"] for s in result.get("subtests") or []}
+    other_statuses = {s["name"]: s["status"] for s in other.get("subtests") or []}
+    return [
+        [name, statuses.get(name), other_statuses.get(name)]
+        for name in sorted(statuses.keys() | other_statuses.keys())
+        if statuses.get(name) != other_statuses.get(name)
+    ]
+
+
+def write_divergences(
+    directory: Path, run: dict, report: dict, other: str, other_run: dict, other_report: dict
+) -> None:
+    """Writes divergences.json, which compares a run with a run of the configuration it is compared with.
+
+    Only the tests that both runs ran count. "areas" maps every directory to [tests, score, other score,
+    differing tests], where a score is the sum of the tests' fractions of passing subtests. Each of "tests" is a
+    [test, status, subtests passed, subtests, other status, other subtests passed, other subtests, differing
+    subtests, [[name, status, other status], ...]] row of a test whose result differs, with at most
+    MAX_SUBTESTS subtests.
+    """
+    areas: dict[str, list] = defaultdict(lambda: [0, 0.0, 0.0, 0])
+    tests = []
+    results, other_results = report["results"], other_report["results"]
+    for test in sorted(results.keys() & other_results.keys()):
+        summary, other_summary = result_summary(results[test]), result_summary(other_results[test])
+        if "SKIP" in (summary[0], other_summary[0]):
+            continue
+        subtests = differing_subtests(results[test], other_results[test])
+        differs = summary != other_summary or bool(subtests)
+        parts = split_test(test)[0].split("/") if split_test(test)[0] else []
+        for depth in range(len(parts) + 1):
+            entry = areas["/".join(parts[:depth])]
+            entry[0] += 1
+            entry[1] += pass_fraction(summary)
+            entry[2] += pass_fraction(other_summary)
+            entry[3] += differs
+        if differs:
+            tests.append([test, *summary, *other_summary, len(subtests), subtests[:MAX_SUBTESTS]])
+    data = {
+        "run": run["name"],
+        "revision": run["product_revision"],
+        "other": other,
+        "other_run": other_run["name"],
+        "other_revision": other_run["product_revision"],
+        "areas": {area: [n, round(a, 3), round(b, 3), d] for area, (n, a, b, d) in sorted(areas.items())},
+        "tests": tests,
+    }
+    (directory / "divergences.json").write_text(json.dumps(data, separators=(",", ":"), ensure_ascii=False))
+
+
 def site(args: argparse.Namespace) -> None:
     out = Path(args.out)
     if out.exists():
@@ -477,6 +537,7 @@ def site(args: argparse.Namespace) -> None:
     order = {c["id"]: slot for slot, c in enumerate(known)}
     labels = {c["id"]: c["label"] for c in known}
     bases = {c["id"]: c["base"] for c in known if "base" in c}
+    compared = {c["id"]: c["compare"] for c in known if "compare" in c}
     all_runs = stored_runs()
     metas = {
         config: [
@@ -493,6 +554,7 @@ def site(args: argparse.Namespace) -> None:
                 key = (base, run["base_revision"])
                 first_use[key] = min(first_use.get(key, run["date"]), run["date"])
     index = []
+    ordered: dict[str, tuple[list[str], list[dict]]] = {}
     for config in sorted(all_runs, key=lambda c: (order.get(c, len(order)), c)):
         commits = list(all_runs[config].values())
         runs = metas[config]
@@ -506,6 +568,7 @@ def site(args: argparse.Namespace) -> None:
         )
         commits = [commits[i] for i in by_date]
         runs = [runs[i] for i in by_date]
+        ordered[config] = (commits, runs)
         scores = [s["areas"] for s in read_run_files(commits, SCORES_FILE)]
         write_summary(out / "summary" / config, runs, scores)
         previous = export_run(commits[-2]) if len(commits) > 1 else None
@@ -520,6 +583,25 @@ def site(args: argparse.Namespace) -> None:
                 **({"base": bases[config]} if config in bases else {}),
             }
         )
+    # The latest run of a configuration against the run of the one it is compared with that tested the same
+    # revision, or else its latest run.
+    for entry in index:
+        other = compared.get(entry["id"])
+        if other not in ordered:
+            continue
+        commits, runs = ordered[entry["id"]]
+        other_commits, other_runs = ordered[other]
+        same = [i for i, run in enumerate(other_runs) if run["product_revision"] == runs[-1]["product_revision"]]
+        i = same[-1] if same else len(other_runs) - 1
+        write_divergences(
+            out / "summary" / entry["id"],
+            runs[-1],
+            export_run(commits[-1]),
+            other,
+            other_runs[i],
+            export_run(other_commits[i]),
+        )
+        entry["compare"] = other
     (out / "summary").mkdir(exist_ok=True)
     (out / "summary" / "index.json").write_text(json.dumps({"configs": index}, indent=1) + "\n")
     print(f"wrote {out} with {len(index)} configurations")

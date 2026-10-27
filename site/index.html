@@ -115,9 +115,11 @@ async function render() {
   const area = currentArea();
   const metric = $("metric").value;
   const parts = area ? area.split("/") : [];
-  $("crumbs").innerHTML = [`<a href="#">All tests</a>`,
+  const compared = configs.find(c => c.compare);
+  $("crumbs").innerHTML = `<span>${[`<a href="#">All tests</a>`,
     ...parts.map((part, i) => `<a href="#${areaPath(parts.slice(0, i + 1).join("/"))}">${escape(part)}</a>`)]
-    .join(" / ");
+    .join(" / ")}</span>${compared ? `<a class="aside" href="compare.html?config=${encodeURIComponent(compared.id)}#${
+      areaPath(area)}">Differences between OpenHarmony and Linux</a>` : ""}`;
   document.title = area ? `${area} · Servo OpenHarmony WPT` : "Servo OpenHarmony WPT";
 
   const months = PERIODS[$("period").value];

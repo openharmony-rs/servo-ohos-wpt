@@ -2,7 +2,7 @@
   { "id": "linux-spidermonkey", "label": "Linux, SpiderMonkey", "base": "upstream-linux-spidermonkey" },
   { "id": "linux-quickjs", "label": "Linux, QuickJS" },
   { "id": "upstream-linux-spidermonkey", "label": "Upstream base, Linux, SpiderMonkey" },
-  { "id": "ohos-spidermonkey", "label": "OpenHarmony, SpiderMonkey" },
-  { "id": "ohos-quickjs", "label": "OpenHarmony, QuickJS" },
-  { "id": "ohos-dayu200-spidermonkey", "label": "OpenHarmony DAYU200, SpiderMonkey, nightly subset" }
+  { "id": "ohos-spidermonkey", "label": "OpenHarmony, SpiderMonkey", "compare": "linux-spidermonkey" },
+  { "id": "ohos-quickjs", "label": "OpenHarmony, QuickJS", "compare": "linux-quickjs" },
+  { "id": "ohos-dayu200-spidermonkey", "label": "OpenHarmony DAYU200, SpiderMonkey, nightly subset", "compare": "linux-spidermonkey" }
 ]
