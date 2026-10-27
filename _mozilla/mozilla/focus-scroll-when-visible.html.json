@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Element that could not be scrolled to the center should be unchanged.","status":"PASS"},{"name":"Element that is completely visible should be unchanged.","status":"PASS"},{"name":"Element that is halfway visible should be unchanged.","status":"PASS"},{"name":"Element that completely hidden should be scrolled.","status":"PASS"}]}

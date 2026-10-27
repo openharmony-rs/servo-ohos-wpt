@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Element's resolved values","status":"PASS"},{"name":"Existing :before pseudoelement","status":"PASS"},{"name":"Missing :after pseudoelement","status":"PASS"},{"name":"getComputedStyle work for elements not in a document","status":"FAIL"}]}
