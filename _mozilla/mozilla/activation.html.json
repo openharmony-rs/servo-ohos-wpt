@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Activate anchor","status":"FAIL"},{"name":"Activate button","status":"FAIL"},{"name":"Activate label","status":"FAIL"},{"name":"Activate input","status":"FAIL"},{"name":"Activation invalid for span","status":"FAIL"}]}
