@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"A port transferred outside of a onmessage handler,\n  followed by a delay in returning the buffer caused by blocking the event-loop,\n  does not lose messages along the way.","status":"PASS"}]}
