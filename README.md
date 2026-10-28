@@ -13,7 +13,7 @@ results come from the CI of servo-ohos and of servo/servo.
 | `linux-spidermonkey`          | the Linux WPT job of servo-ohos for an `ohos-main` push, `checked-release`, 20 chunks |
 | `linux-quickjs`               | the QuickJS WPT job of the same servo-ohos run, on the servo-quickjs commit that `ohos-main` pins |
 | `upstream-linux-spidermonkey` | the Linux WPT job of servo/servo's merge queue for the commit that `ohos-main` is based on |
-| `ohos-dayu200-spidermonkey`   | servo-ohos's nightly device WPT run on a DAYU200 board, `checked-release`, a subset of WPT in one chunk |
+| `ohos-dayu200-quickjs`        | servo-ohos's nightly device WPT run on a DAYU200 board, `checked-release` with QuickJS and the RDB storage backend, a subset of WPT in one chunk |
 
 Until 2026-10-22, this repository built servoshell (`release`) and ran WPT itself; those runs
 are kept. Each configuration has its own score history, and two runs of different configurations
