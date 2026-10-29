@@ -1,0 +1,29 @@
+{
+ "config": "upstream-linux-spidermonkey",
+ "date": "2026-10-30",
+ "time_start": 1793288589071,
+ "time_end": 1793290258816,
+ "run_info": {
+  "os": "linux",
+  "processor": "x86_64",
+  "version": "Ubuntu 22.04",
+  "os_version": "22.04",
+  "bits": 64,
+  "has_sandbox": true,
+  "display": null,
+  "automation": false,
+  "linux_distro": "Ubuntu",
+  "apple_silicon": false,
+  "apple_catalina": false,
+  "win10_2004": false,
+  "win10_2009": false,
+  "win11_2009": false,
+  "revision": "ed6a9248aae596f80f3b6a21be507c58dd60c364",
+  "python_version": 3,
+  "product": "servo",
+  "debug": false,
+  "verify": false,
+  "wasm": false,
+  "headless": false
+ }
+}

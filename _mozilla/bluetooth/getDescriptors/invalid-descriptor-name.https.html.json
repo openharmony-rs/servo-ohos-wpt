@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Wrong descriptor name. Reject with TypeError.","status":"FAIL"}]}
