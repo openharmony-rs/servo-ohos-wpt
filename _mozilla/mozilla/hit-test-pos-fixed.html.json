@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Hit-test of an element with position: fixed should discard scroll offset","status":"PASS"}]}

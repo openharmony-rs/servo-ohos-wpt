@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Request for absent descriptors with UUID. Reject with NotFoundError.","status":"FAIL"}]}
