@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Can't get pixels of a canvas with a non-CORS cross-origin video drawn while it seeks","status":"PASS"}]}
