@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Even in the AT_TARGET phase, capture handlers fire before bubble handlers.","status":"PASS"}]}

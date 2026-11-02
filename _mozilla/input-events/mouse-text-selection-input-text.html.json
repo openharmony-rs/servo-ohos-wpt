@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Basic selection of text via the mouse in <input type=text>","status":"PASS"},{"name":"Middle button click should reset the selection origin during ongoing text selection via drag","status":"PASS"}]}
