@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Double click and then dragging works as expected","status":"PASS"},{"name":"Double click and then dragging works across nodes as expected","status":"PASS"},{"name":"Triple click and then dragging works as expected","status":"PASS"}]}
