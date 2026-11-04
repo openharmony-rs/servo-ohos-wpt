@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Media query with a bogus query doesn't turn the whole media query list invalid","status":"PASS"}]}

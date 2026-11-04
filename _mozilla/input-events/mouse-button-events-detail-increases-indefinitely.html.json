@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"'detail' count for click events for left button increases indefinitely","status":"PASS"},{"name":"'detail' for mouseup events for right button clicks increase indefinitely","status":"PASS"}]}
