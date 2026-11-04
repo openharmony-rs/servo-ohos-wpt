@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Variadic interface arguments work.","status":"PASS"},{"name":"Default values and variadic arguments work together.","status":"PASS"}]}

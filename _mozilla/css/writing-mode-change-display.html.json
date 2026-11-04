@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"The span's `display` should change from `inline` to `inline-block`, because of its writing-mode.","status":"FAIL"}]}
