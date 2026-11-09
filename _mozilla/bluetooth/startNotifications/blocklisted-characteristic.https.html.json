@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Characteristic with exclude-reads rejects startNotifications.","status":"FAIL"}]}

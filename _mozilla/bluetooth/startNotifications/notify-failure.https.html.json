@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"startNotifications should throw NotSupportedError without Notify or Indicate flag.","status":"FAIL"}]}
