@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"A device can be found by requesting with a service/manufacturerData.dataPrefix, which contains the starting or all bytes of device's advertised service/manufacturer specific data bytes.","status":"FAIL"}]}

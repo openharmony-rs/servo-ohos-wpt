@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"document.createEvent('storageevent') does not propagate the document's URL.","status":"PASS"}]}

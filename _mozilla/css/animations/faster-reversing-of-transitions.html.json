@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Reversed transitions are shortened proportionally","status":"PASS"},{"name":"Reversed already reversed transitions are shortened proportionally","status":"PASS"},{"name":"Non-reversed transition changes use the full transition-duration","status":"PASS"},{"name":"Finished transitions are not reversed","status":"PASS"}]}

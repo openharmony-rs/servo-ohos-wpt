@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Clicking on a non-focusable node inside a focusable node should move the sequential focus navigation starting point","status":"PASS"}]}

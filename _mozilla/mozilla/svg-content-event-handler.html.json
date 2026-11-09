@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"An event handler content attribute set on an SVG element is activated","status":"PASS"},{"name":"Removing an event handler content attribute on an SVG element deactivates it","status":"PASS"}]}
