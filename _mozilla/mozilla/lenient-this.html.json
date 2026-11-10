@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"basic test","status":"PASS"},{"name":"Should not throw for attribute marked \"[LenientThis]\"","status":"PASS"}]}

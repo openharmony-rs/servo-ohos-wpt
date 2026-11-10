@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Nodes cannot be GCed while a CSS transition is in effect.","status":"PASS"}]}
