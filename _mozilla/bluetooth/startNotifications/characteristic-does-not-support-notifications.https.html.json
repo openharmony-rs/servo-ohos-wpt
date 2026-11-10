@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Characteristic doesn't support Notifications. Reject with NotSupportedError.","status":"FAIL"}]}

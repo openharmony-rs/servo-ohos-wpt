@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Loading a placeholder image should trigger an error on the img element","status":"PASS"}]}

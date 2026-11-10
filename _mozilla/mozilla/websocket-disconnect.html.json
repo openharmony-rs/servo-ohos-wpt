@@ -1,0 +1,1 @@
+{"status":"ERROR","subtests":[{"name":"Web socket doesn't panic when worker disappears","status":"TIMEOUT"}]}
