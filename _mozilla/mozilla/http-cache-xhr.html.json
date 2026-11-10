@@ -1,0 +1,1 @@
+{"status":"TIMEOUT","subtests":[{"name":"The response from an aborted XHR request should not be cached","status":"TIMEOUT"}]}

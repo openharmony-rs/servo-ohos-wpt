@@ -1,0 +1,1 @@
+{"status":"OK","subtests":[{"name":"Clicking in <textarea> should move the edit point","status":"PASS"},{"name":"Middle button click should reset the selection origin during ongoing text selection via drag","status":"PASS"},{"name":"Double-clicking should select word and allow beginning a text selection drag","status":"PASS"}]}
