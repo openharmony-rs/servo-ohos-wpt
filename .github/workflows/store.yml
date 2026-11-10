@@ -73,9 +73,10 @@ jobs:
             done
           }
           # download-artifact puts each artifact into a directory named after it only when the
-          # pattern matched several. A single one ends up in reports/ itself.
+          # pattern matched several. A single one ends up in reports/ itself. Of the artifacts that
+          # several attempts of a re-run uploaded under one name, it downloads only the latest.
           downloaded=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
-            --jq '[.artifacts[] | select(.expired | not) | .name | select(startswith("wpt-full-logs-"))]')
+            --jq '[.artifacts[] | select(.expired | not) | .name | select(startswith("wpt-full-logs-"))] | unique')
           if [ "$(jq length <<< "$downloaded")" -eq 1 ]; then
             single=$(jq -r '.[0]' <<< "$downloaded")
             mv reports "$single"
